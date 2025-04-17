@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 def simulate_heston_qe(
         S0=100.0, v0=0.04, r=0.0,
         kappa=1.5, theta=0.04, xi=0.3, rho=-0.7,
-        T=3, dt=1 / 252, n_paths=10_000, seed=42
+        T=3, dt=1 / 252, n_paths=30_000, seed=42
 ):
     if seed is not None:
         np.random.seed(seed)

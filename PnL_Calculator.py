@@ -69,140 +69,6 @@ def compute_pathwise_pnl(S_t, S_tp1, v_t, v_tp1, base_model):
     return pnl
 
 
-
-def compute_explained_pnl_fd(S_t, S_tp1, v_t, v_tp1, base_model, epsilon=1e-2):
-    """
-    Calcule le PnL expliqué par Delta, Vega, Theta avec différences finies.
-
-    Paramètres
-    ----------
-    S_t, S_tp1 : ndarray or tensor
-    v_t, v_tp1 : ndarray or tensor
-    base_model : ForwardStart
-    epsilon : float, pas pour la diff finie
-
-    Retour
-    ------
-    pnl_explained : torch.Tensor (n_paths,)
-    """
-    device = CONFIG.device
-
-    # Convertir inputs en torch
-    S_t = torch.tensor(S_t, dtype=torch.float32, device=device)
-    S_tp1 = torch.tensor(S_tp1, dtype=torch.float32, device=device)
-    v_t = torch.tensor(v_t, dtype=torch.float32, device=device)
-    v_tp1 = torch.tensor(v_tp1, dtype=torch.float32, device=device)
-
-    sqrt_v_t = torch.sqrt(v_t)
-    sqrt_v_tp1 = torch.sqrt(v_tp1)
-
-    # dS, dv, dt
-    dS = S_tp1 - S_t
-    dv = sqrt_v_tp1 - sqrt_v_t
-    dt = 1 / 252
-
-    pnl_explained = []
-
-    for i in range(len(S_t)):
-        print(i)
-        # === Delta ===
-        model_plus = ForwardStart(
-            S0=S_t[i] + epsilon,
-            k=base_model.k.item(),
-            T0=base_model.T0.item(),
-            T1=base_model.T1.item()-1/252,
-            T2=base_model.T2.item()-1/252,
-            r=base_model.r.item(),
-            kappa=base_model.kappa.item(),
-            v0=v_t[i].item(),
-            theta=base_model.theta.item(),
-            sigma=base_model.sigma.item(),
-            rho=base_model.rho.item()
-        )
-        model_minus = ForwardStart(
-            S0=S_t[i] - epsilon,
-            k=base_model.k.item(),
-            T0=base_model.T0.item(),
-            T1=base_model.T1.item(),
-            T2=base_model.T2.item(),
-            r=base_model.r.item(),
-            kappa=base_model.kappa.item(),
-            v0=v_t[i].item(),
-            theta=base_model.theta.item(),
-            sigma=base_model.sigma.item(),
-            rho=base_model.rho.item()
-        )
-        delta = (model_plus.heston_price() - model_minus.heston_price()) / (2 * epsilon)
-
-        # === Vega (par rapport à sqrt(v0)) ===
-        v0_plus = (sqrt_v_t[i] + epsilon)**2
-        v0_minus = (sqrt_v_t[i] - epsilon)**2
-
-        model_plus_v = ForwardStart(
-            S0=S_t[i],
-            k=base_model.k.item(),
-            T0=base_model.T0.item(),
-            T1=base_model.T1.item()-1/252,
-            T2=base_model.T2.item()-1/252,
-            r=base_model.r.item(),
-            kappa=base_model.kappa.item(),
-            v0=v0_plus.item(),
-            theta=base_model.theta.item(),
-            sigma=base_model.sigma.item(),
-            rho=base_model.rho.item()
-        )
-        model_minus_v = ForwardStart(
-            S0=S_t[i],
-            k=base_model.k.item(),
-            T0=base_model.T0.item(),
-            T1=base_model.T1.item(),
-            T2=base_model.T2.item(),
-            r=base_model.r.item(),
-            kappa=base_model.kappa.item(),
-            v0=v0_minus.item(),
-            theta=base_model.theta.item(),
-            sigma=base_model.sigma.item(),
-            rho=base_model.rho.item()
-        )
-        vega = (model_plus_v.heston_price() - model_minus_v.heston_price()) / (2 * epsilon)
-
-        # === Theta (par rapport à T0) ===
-        model_plus_t = ForwardStart(
-            S0=S_t[i],
-            k=base_model.k.item(),
-            T0=base_model.T0.item() + epsilon,
-            T1=base_model.T1.item()-1/252,
-            T2=base_model.T2.item()-1/252,
-            r=base_model.r.item(),
-            kappa=base_model.kappa.item(),
-            v0=v_t[i].item(),
-            theta=base_model.theta.item(),
-            sigma=base_model.sigma.item(),
-            rho=base_model.rho.item()
-        )
-        model_minus_t = ForwardStart(
-            S0=S_t[i],
-            k=base_model.k.item(),
-            T0=base_model.T0.item() - epsilon,
-            T1=base_model.T1.item(),
-            T2=base_model.T2.item(),
-            r=base_model.r.item(),
-            kappa=base_model.kappa.item(),
-            v0=v_t[i].item(),
-            theta=base_model.theta.item(),
-            sigma=base_model.sigma.item(),
-            rho=base_model.rho.item()
-        )
-        theta = (model_plus_t.heston_price() - model_minus_t.heston_price()) / (2 * epsilon)
-
-        # === Final explained PnL for path i ===
-        pnl = delta * dS[i] + vega * dv[i] + theta * dt
-        pnl_explained.append(pnl.item())
-
-    return torch.tensor(pnl_explained, device=device)
-
-
-
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.stats as stats
@@ -267,6 +133,19 @@ def analyze_pnl_numpy(pnl_tot, pnl_explained, bins=100):
     plt.legend()
     plt.grid(True)
     plt.show()
+
+    plt.figure(figsize=(12, 5))
+    plt.plot(pnl_tot, label="PnL total", color="blue", linewidth=1)
+    plt.plot(pnl_explained, label="PnL expliqué", color="orange", alpha=0.4, linewidth=1)
+    plt.plot(pnl_unexplained, label="PnL inexpliqué", color="green", linewidth=1)
+    plt.title("PnL par chemin (non cumulé)")
+    plt.xlabel("Chemin")
+    plt.ylabel("PnL")
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
+
 
 
 

@@ -4,7 +4,7 @@ from ForwardStart import ForwardStart
 import torch
 from config import CONFIG
 from MonteCarlo import simulate_heston_qe, plot_terminal_distributions, extract_snapshots
-from PnL_Calculator import compute_pathwise_pnl, compute_explained_pnl_fd, analyze_pnl_numpy
+from PnL_Calculator import compute_pathwise_pnl, analyze_pnl_numpy
 
 calibrated_params = {'kappa': 2.41300630569458, 'v0': 0.029727613553404808, 'theta': 0.04138144478201866,
                      'sigma': 0.3084869682788849, 'rho': -0.8905978202819824}
