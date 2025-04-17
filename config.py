@@ -1,0 +1,2 @@
+class CONFIG:
+    device = "cuda"
