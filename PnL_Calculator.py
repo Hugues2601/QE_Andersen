@@ -68,6 +68,72 @@ def compute_pathwise_pnl(S_t, S_tp1, v_t, v_tp1, base_model):
     pnl = price_tp1 - price_t
     return pnl
 
+def compute_pathwise_pnl_choc(S_t, S_tp1, v_t, v_tp1, base_model, new_params):
+    """
+    Calcule le PnL pathwise entre t et t+1 en utilisant les paramètres simulés et le modèle ForwardStart.
+
+    Paramètres
+    ----------
+    S_t, S_tp1 : ndarray or tensor
+        Valeurs de S_t et S_{t+1} pour chaque chemin.
+    v_t, v_tp1 : ndarray or tensor
+        Valeurs de v_t et v_{t+1} pour chaque chemin.
+    base_model : ForwardStart
+        Modèle ForwardStart instancié avec les bons paramètres fixes (T0, T1, T2, etc.)
+
+    Retourne
+    --------
+    pnl : torch.Tensor
+        Différence de prix entre t+1 et t pour chaque chemin (shape: n_paths,)
+    """
+    device = CONFIG.device
+
+    # Convert to torch tensors if necessary
+    S_t = torch.tensor(S_t, device=device, dtype=torch.float32) if not torch.is_tensor(S_t) else S_t.to(device)
+    S_tp1 = torch.tensor(S_tp1, device=device, dtype=torch.float32) if not torch.is_tensor(S_tp1) else S_tp1.to(device)
+    v_t = torch.tensor(v_t, device=device, dtype=torch.float32) if not torch.is_tensor(v_t) else v_t.to(device)
+    v_tp1 = torch.tensor(v_tp1, device=device, dtype=torch.float32) if not torch.is_tensor(v_tp1) else v_tp1.to(device)
+
+    # Tenseur du strike
+    k = base_model.k.item()
+
+    # Clone du modèle à t
+    model_t = ForwardStart(
+        S0=S_t,
+        k=k,
+        T0=base_model.T0.item(),
+        T1=base_model.T1.item(),
+        T2=base_model.T2.item(),
+        r=base_model.r.item(),
+        kappa=new_params[0],
+        v0=v_t,
+        theta=new_params[2],
+        sigma=new_params[4],
+        rho=new_params[6]
+    )
+
+    # Clone du modèle à t+1
+    model_tp1 = ForwardStart(
+        S0=S_tp1,
+        k=k,
+        T0=base_model.T0.item(),
+        T1=base_model.T1.item()-(1/252),
+        T2=base_model.T2.item()-(1/252),
+        r=base_model.r.item(),
+        kappa=new_params[1],
+        v0=v_tp1,
+        theta=new_params[3],
+        sigma=new_params[5],
+        rho=new_params[7]
+    )
+
+    # Prix des options à t et t+1 (shape: n_paths,)
+    price_t = model_t.heston_price()
+    price_tp1 = model_tp1.heston_price()
+
+    pnl = price_tp1 - price_t
+    return pnl
+
 
 import numpy as np
 import matplotlib.pyplot as plt

@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 def simulate_heston_qe(
         S0=100.0, v0=0.04, r=0.0,
         kappa=1.5, theta=0.04, xi=0.3, rho=-0.7,
-        T=3, dt=1 / 252, n_paths=30_000, seed=42
+        T=3, dt=1 / 252, n_paths=10_000, seed=42
 ):
     if seed is not None:
         np.random.seed(seed)
@@ -61,8 +61,8 @@ def simulate_heston_qe_with_stochastic_params(
     S0=100.0, v0=0.04, r=0.0,
     kappa=1.5, theta=0.04, xi=0.3, rho=-0.7,
     T=3, dt=1 / 252, n_paths=30_000, seed=42,
-    shock_std={"kappa": 0.05, "theta": 0.002, "xi": 0.005, "rho": 0.003},
-    reversion_speed=0.95
+    shock_std={"kappa": 0.005, "theta": 0.0002, "xi": 0.0002, "rho": 0.0002},
+    reversion_speed=0.95, t_time=100
 ):
     if seed is not None:
         np.random.seed(seed)
@@ -156,7 +156,17 @@ def simulate_heston_qe_with_stochastic_params(
     plt.tight_layout()
     plt.show()
 
-    return S, v
+    print(f"kappa[100] = {kappa_path[0]:.6f}, kappa[101] = {kappa_path[101]:.6f}")
+    print(f"theta[100] = {theta_path[0]:.6f}, theta[101] = {theta_path[101]:.6f}")
+    print(f"xi   [100] = {xi_path[0]:.6f}, xi   [101] = {xi_path[101]:.6f}")
+    print(f"rho  [100] = {rho_path[0]:.6f}, rho  [101] = {rho_path[101]:.6f}")
+
+    return S, v, (
+        kappa_path[t_time], kappa_path[t_time+1],
+        theta_path[t_time], theta_path[t_time+1],
+        xi_path[t_time], xi_path[t_time+1],
+        rho_path[t_time], rho_path[t_time+1]
+    )
 
 
 
