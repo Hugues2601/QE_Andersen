@@ -86,11 +86,13 @@ def simulate_heston_qe_with_stochastic_params(
     rho_path = []
 
     for t in range(n_steps):
+
+        if t>0:
         # Chocs stochastiques sur les paramètres (Ornstein-Uhlenbeck style)
-        kappa_t = kappa + reversion_speed * (kappa_t - kappa) + np.random.normal(0, shock_std["kappa"])
-        theta_t = theta + reversion_speed * (theta_t - theta) + np.random.normal(0, shock_std["theta"])
-        xi_t    = xi    + reversion_speed * (xi_t - xi)       + np.random.normal(0, shock_std["xi"])
-        rho_t   = rho   + reversion_speed * (rho_t - rho)     + np.random.normal(0, shock_std["rho"])
+            kappa_t = kappa + reversion_speed * (kappa_t - kappa) + np.random.normal(0, shock_std["kappa"])
+            theta_t = theta + reversion_speed * (theta_t - theta) + np.random.normal(0, shock_std["theta"])
+            xi_t    = xi    + reversion_speed * (xi_t - xi)       + np.random.normal(0, shock_std["xi"])
+            rho_t   = rho   + reversion_speed * (rho_t - rho)     + np.random.normal(0, shock_std["rho"])
 
         kappa_path.append(kappa_t)
         theta_path.append(theta_t)
