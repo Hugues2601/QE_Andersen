@@ -57,6 +57,109 @@ def simulate_heston_qe(
     return S, v
 
 
+def simulate_heston_qe_with_stochastic_params(
+    S0=100.0, v0=0.04, r=0.0,
+    kappa=1.5, theta=0.04, xi=0.3, rho=-0.7,
+    T=3, dt=1 / 252, n_paths=30_000, seed=42,
+    shock_std={"kappa": 0.05, "theta": 0.002, "xi": 0.005, "rho": 0.003},
+    reversion_speed=0.95
+):
+    if seed is not None:
+        np.random.seed(seed)
+
+    n_steps = int(T / dt)
+    S = np.zeros((n_steps + 1, n_paths))
+    v = np.zeros((n_steps + 1, n_paths))
+
+    S[0] = S0
+    v[0] = v0
+
+    # Paramètres dynamiques initialisés à leur valeur cible
+    kappa_t = kappa
+    theta_t = theta
+    xi_t = xi
+    rho_t = rho
+
+    kappa_path = []
+    theta_path = []
+    xi_path = []
+    rho_path = []
+
+    for t in range(n_steps):
+        # Chocs stochastiques sur les paramètres (Ornstein-Uhlenbeck style)
+        kappa_t = kappa + reversion_speed * (kappa_t - kappa) + np.random.normal(0, shock_std["kappa"])
+        theta_t = theta + reversion_speed * (theta_t - theta) + np.random.normal(0, shock_std["theta"])
+        xi_t    = xi    + reversion_speed * (xi_t - xi)       + np.random.normal(0, shock_std["xi"])
+        rho_t   = rho   + reversion_speed * (rho_t - rho)     + np.random.normal(0, shock_std["rho"])
+
+        kappa_path.append(kappa_t)
+        theta_path.append(theta_t)
+        xi_path.append(xi_t)
+        rho_path.append(rho_t)
+
+        Z1 = np.random.randn(n_paths)
+        Z2 = np.random.randn(n_paths)
+        Z_v = Z1
+        Z_s = rho_t * Z1 + np.sqrt(1 - rho_t ** 2) * Z2
+
+        vt = v[t]
+        m = theta_t + (vt - theta_t) * np.exp(-kappa_t * dt)
+        s2 = (
+            vt * xi_t ** 2 * np.exp(-kappa_t * dt) * (1 - np.exp(-kappa_t * dt)) / kappa_t
+            + theta_t * xi_t ** 2 * (1 - np.exp(-kappa_t * dt)) ** 2 / (2 * kappa_t)
+        )
+        psi = s2 / m ** 2
+
+        v_next = np.zeros(n_paths)
+        mask1 = psi <= 1.5
+        mask2 = ~mask1
+
+        if np.any(mask1):
+            b2 = 2 / psi[mask1] - 1 + np.sqrt(2 / psi[mask1] * (2 / psi[mask1] - 1))
+            a = m[mask1] / (1 + b2)
+            v_next[mask1] = a * (np.sqrt(b2) + Z_v[mask1]) ** 2
+
+        if np.any(mask2):
+            p = (psi[mask2] - 1) / (psi[mask2] + 1)
+            beta = (1 - p) / m[mask2]
+            u = np.random.rand(mask2.sum())
+            v_temp = np.zeros_like(u)
+            u_gt_p = u > p
+            v_temp[u_gt_p] = -np.log((1 - u[u_gt_p]) / (1 - p[u_gt_p])) / beta[u_gt_p]
+            v_next[mask2] = v_temp
+
+        v[t + 1] = v_next
+        S[t + 1] = S[t] * np.exp((r - 0.5 * vt) * dt + np.sqrt(vt * dt) * Z_s)
+
+    plt.figure(figsize=(14, 8))
+
+    plt.subplot(2, 2, 1)
+    plt.plot(kappa_path)
+    plt.title("Évolution de kappa")
+    plt.grid(True)
+
+    plt.subplot(2, 2, 2)
+    plt.plot(theta_path)
+    plt.title("Évolution de theta")
+    plt.grid(True)
+
+    plt.subplot(2, 2, 3)
+    plt.plot(xi_path)
+    plt.title("Évolution de xi (vol of vol)")
+    plt.grid(True)
+
+    plt.subplot(2, 2, 4)
+    plt.plot(rho_path)
+    plt.title("Évolution de rho")
+    plt.grid(True)
+
+    plt.tight_layout()
+    plt.show()
+
+    return S, v
+
+
+
 
 def plot_terminal_distributions(S, v):
     """
