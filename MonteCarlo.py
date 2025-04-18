@@ -100,7 +100,7 @@ def simulate_heston_qe_with_stochastic_params(
     kappa=1.5, theta=0.04, xi=0.3, rho=-0.7,
     T=3, dt=1 / 252, n_paths=30_000, seed=42,
     shock_std={"kappa": 0.005, "theta": 0.0002, "xi": 0.0002, "rho": 0.0002},
-    reversion_speed=0.95, t_time=100
+    reversion_speed=0.95, t_time=50
 ):
     if seed is not None:
         np.random.seed(seed)

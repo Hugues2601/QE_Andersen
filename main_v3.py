@@ -15,122 +15,130 @@ from PnL_Calculator import compute_pathwise_pnl, analyze_pnl_numpy, compute_path
 calibrated_params = {'kappa': 2.41300630569458, 'v0': 0.029727613553404808, 'theta': 0.04138144478201866,
                      'sigma': 0.3084869682788849, 'rho': -0.8905978202819824,}
 
-def simulate_forward_pnl_life(S, v, forward_model, T1, T2, kappa_path, theta_path, sigma_path, rho_path, dt=1/252):
+def simulate_forward_pnl_life_dual_with_shocks(S, v, forward_model, T1, T2,
+                                               kappa_path, theta_path, sigma_path, rho_path,
+                                               dt=1/252):
     import matplotlib.pyplot as plt
     import numpy as np
+    import os
 
     n_steps = 186
 
-    delta = forward_model.compute_greek("delta")
-    vega = forward_model.compute_greek("vega")
-    theta = forward_model.compute_greek("theta")
-    vanna = forward_model.compute_greek("vanna")
-    volga = forward_model.compute_greek("volga")
+    def compute_pnl(greeks_dynamic=False):
+        pnl_total_list, pnl_explained_list, pnl_unexplained_list = [], [], []
 
-    pnl_total_list = []
-    pnl_explained_list = []
-    pnl_unexplained_list = []
+        if not greeks_dynamic:
+            delta = forward_model.compute_greek("delta")
+            vega = forward_model.compute_greek("vega")
+            theta = forward_model.compute_greek("theta")
+            vanna = forward_model.compute_greek("vanna")
+            volga = forward_model.compute_greek("volga")
 
-    for t in range(n_steps):
-        St = S[t]
-        St1 = S[t + 1]
-        vt = v[t]
-        vt1 = v[t + 1]
+        for t in range(n_steps):
+            St, St1 = S[t], S[t + 1]
+            vt, vt1 = v[t], v[t + 1]
 
-        T0_t = t * dt
-        T1_t = T1 - t * dt
-        T2_t = T2 - t * dt
+            T0_t = t * dt
+            T1_t = T1 - t * dt
+            T2_t = T2 - t * dt
 
-        forward_model.T0 = torch.tensor(T0_t, device=CONFIG.device, requires_grad=True)
-        forward_model.T1 = torch.tensor(T1_t, device=CONFIG.device)
-        forward_model.T2 = torch.tensor(T2_t, device=CONFIG.device)
+            # Paramètres Heston choqués
+            kappa_t, theta_t, sigma_t, rho_t = kappa_path[t], theta_path[t], sigma_path[t], rho_path[t]
+            kappa_t1, theta_t1, sigma_t1, rho_t1 = kappa_path[t + 1], theta_path[t + 1], sigma_path[t + 1], rho_path[t + 1]
 
-        forward_model_t = ForwardStart(S0=St, k=1, r=0.03927, T0=0.0, T1=T1_t, T2=T2_t,
-                               kappa=kappa_path[t], v0=vt,
-                               theta=theta_path[t],
-                               sigma=sigma_path[t],
-                               rho=rho_path[t],)
+            model_t = ForwardStart(S0=St, k=1, r=0.03927, T0=0.0, T1=T1_t, T2=T2_t,
+                                   kappa=kappa_t, v0=vt, theta=theta_t, sigma=sigma_t, rho=rho_t)
 
-        forward_model_t_greek = ForwardStart(S0=St, k=1, r=0.03927, T0=0.0, T1=T1_t, T2=T2_t,
-                               kappa=calibrated_params['kappa'], v0=vt,
-                               theta=calibrated_params["theta"],
-                               sigma=calibrated_params['sigma'],
-                               rho=calibrated_params['rho'])
+            model_t1 = ForwardStart(S0=St1, k=1, r=0.03927, T0=0.0, T1=T1_t - dt, T2=T2_t - dt,
+                                    kappa=kappa_t1, v0=vt1, theta=theta_t1, sigma=sigma_t1, rho=rho_t1)
 
-        forward_model_t1 = ForwardStart(S0=St1, k=1, r=0.03927, T0=0.0, T1=T1_t - dt, T2=T2_t - dt,
-                                kappa=kappa_path[t+1], v0=vt1,
-                                theta=theta_path[t+1],
-                                sigma=sigma_path[t+1],
-                                rho=rho_path[t+1])
+            model_t_greek = ForwardStart(S0=St, k=1, r=0.03927, T0=0.0, T1=T1_t, T2=T2_t,
+                                   kappa=calibrated_params["kappa"], v0=vt, theta=calibrated_params["theta"], sigma=calibrated_params["sigma"], rho=calibrated_params["rho"])
 
-        forward_model_t1_greek = ForwardStart(S0=St1, k=1, r=0.03927, T0=0.0, T1=T1_t - dt, T2=T2_t - dt,
-                                kappa=calibrated_params['kappa'], v0=vt1,
-                                theta=calibrated_params["theta"],
-                                sigma=calibrated_params['sigma'],
-                                rho=calibrated_params['rho'])
+            price_t = model_t.heston_price().detach().cpu().numpy()
+            price_t1 = model_t1.heston_price().detach().cpu().numpy()
+            pnl_tot = price_t1 - price_t
 
-        price_t = forward_model_t.heston_price()
+            if greeks_dynamic:
+                delta = model_t_greek.compute_greek("delta")
+                vega = model_t_greek.compute_greek("vega")
+                theta = model_t_greek.compute_greek("theta")
+                vanna = model_t_greek.compute_greek("vanna")
+                volga = model_t_greek.compute_greek("volga")
 
-        price_t1 = forward_model_t1.heston_price()
+            delta_c = delta * (St1 - St)
+            vega_c = vega * (np.sqrt(vt1) - np.sqrt(vt))
+            theta_c = theta * dt
+            vanna_c = vanna * (St1 - St) * (np.sqrt(vt1) - np.sqrt(vt))
+            volga_c = 0.5 * volga * (np.sqrt(vt1) - np.sqrt(vt)) ** 2
 
-        delta = forward_model_t_greek.compute_greek("delta")
-        vega = forward_model_t_greek.compute_greek("vega")
-        theta = forward_model_t_greek.compute_greek("theta")
-        vanna = forward_model_t_greek.compute_greek("vanna")
-        volga = forward_model_t_greek.compute_greek("volga")
+            pnl_explained = delta_c + vega_c + theta_c + vanna_c + volga_c
+            pnl_unexplained = pnl_tot - pnl_explained
 
-        price_t = price_t.detach().cpu().numpy()
-        price_t1 = price_t1.detach().cpu().numpy()
-        pnl_tot = price_t1 - price_t
+            pnl_total_list.append(pnl_tot)
+            pnl_explained_list.append(pnl_explained)
+            pnl_unexplained_list.append(pnl_unexplained)
 
-        delta_c = delta * (St1 - St)
-        vega_c = vega * (np.sqrt(vt1) - np.sqrt(vt))
-        theta_c = theta * dt
-        vanna_c = vanna * (St1 - St) * (np.sqrt(vt1) - np.sqrt(vt))
-        volga_c = 0.5 * volga * (np.sqrt(vt1) - np.sqrt(vt))**2
+        return pnl_total_list, pnl_explained_list, pnl_unexplained_list
 
-        pnl_explained = delta_c + vega_c + theta_c + vanna_c + volga_c
-        pnl_unexplained = pnl_tot - pnl_explained
+    # 🔁 Calcul pour les deux cas
+    fixed_tot, fixed_expl, fixed_unexpl = compute_pnl(greeks_dynamic=False)
+    dyn_tot, dyn_expl, dyn_unexpl = compute_pnl(greeks_dynamic=True)
 
-        pnl_total_list.append(pnl_tot)
-        pnl_explained_list.append(pnl_explained)
-        pnl_unexplained_list.append(pnl_unexplained)
+    def compute_avg_and_cumsum(pnl_list):
+        avg = [np.mean(p) for p in pnl_list]
+        cumsum = np.cumsum(avg)
+        return avg, cumsum
 
-    # 📊 Plot de l’évolution moyenne des PnL
-    avg_tot = [np.mean(p) for p in pnl_total_list]
-    avg_expl = [np.mean(p) for p in pnl_explained_list]
-    avg_unexpl = [np.mean(p) for p in pnl_unexplained_list]
+    avg_f_tot, cum_f_tot = compute_avg_and_cumsum(fixed_tot)
+    avg_f_expl, cum_f_expl = compute_avg_and_cumsum(fixed_expl)
+    avg_f_unexpl, cum_f_unexpl = compute_avg_and_cumsum(fixed_unexpl)
+
+    avg_d_tot, cum_d_tot = compute_avg_and_cumsum(dyn_tot)
+    avg_d_expl, cum_d_expl = compute_avg_and_cumsum(dyn_expl)
+    avg_d_unexpl, cum_d_unexpl = compute_avg_and_cumsum(dyn_unexpl)
+
     steps = np.arange(n_steps)
 
-    # 📊 Cumul du PnL par jour
-    cum_tot = np.cumsum(avg_tot)
-    cum_expl = np.cumsum(avg_expl)
-    cum_unexpl = np.cumsum(avg_unexpl)
+    # 🎨 Plot final : figé vs dynamique
+    fig, axs = plt.subplots(2, 2, figsize=(14, 8), sharex='col',
+                            gridspec_kw={"height_ratios": [3, 1]})
 
-    # === FIGURE 1 : PnL cumulé + PnL inexpliqué jour par jour ===
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 8), sharex=True, height_ratios=[2.5, 1.2])
+    # Fixed Greeks
+    axs[0, 0].plot(steps, cum_f_tot, label="Cumulative Total PnL", linewidth=2, color='#D28A76')
+    axs[0, 0].plot(steps, cum_f_expl, label="Cumulative Explained PnL", linewidth=2, color='#9DC3C3')
+    axs[0, 0].plot(steps, cum_f_unexpl, label="Cumulative Unexplained PnL", linewidth=2, color='black')
+    axs[0, 0].axhline(0, color='black', linestyle='--')
+    axs[0, 0].set_title("Greeks Fixed at t=0")
+    axs[0, 0].set_ylabel("Cumulative PnL")
+    axs[0, 0].grid(True, linestyle='--', alpha=0.3)
+    axs[0, 0].legend()
 
-    ax1.plot(steps, cum_tot, label="PnL total cumulé", linewidth=2)
-    ax1.plot(steps, cum_expl, label="PnL expliqué cumulé", linewidth=2)
-    ax1.plot(steps, cum_unexpl, label="PnL inexpliqué cumulé", linewidth=2)
-    ax1.axhline(0, color='black', linestyle='--', linewidth=1)
-    ax1.set_ylabel("PnL cumulé")
-    ax1.set_title("PnL cumulé (moyenne sur tous les chemins)")
-    ax1.grid(True, linestyle='--', alpha=0.3)
-    ax1.legend()
+    axs[1, 0].bar(steps, avg_f_unexpl, width=1.0, color='black', alpha=0.7)
+    axs[1, 0].axhline(0, color='black', linestyle='--')
+    axs[1, 0].set_ylabel("Unexpl. PnL")
+    axs[1, 0].set_xlabel("Time (days)")
 
-    # Ajout des barres verticales (PnL inexpliqué non cumulé)
-    ax2.bar(steps, avg_unexpl, width=1.0, color='gray', alpha=0.7)
-    ax2.axhline(0, color='black', linestyle='--', linewidth=1)
-    ax2.set_ylabel("PnL inexpliqué (pas à pas)")
-    ax2.set_xlabel("Temps (jours)")
-    ax2.grid(True, linestyle='--', alpha=0.3)
+    # Dynamic Greeks
+    axs[0, 1].plot(steps, cum_d_tot, label="Cumulative Total PnL", linewidth=2, color='#D28A76')
+    axs[0, 1].plot(steps, cum_d_expl, label="Cumulative Explained PnL", linewidth=2, color='#9DC3C3')
+    axs[0, 1].plot(steps, cum_d_unexpl, label="Cumulative Unexplained PnL", linewidth=2, color='black')
+    axs[0, 1].axhline(0, color='black', linestyle='--')
+    axs[0, 1].set_title("Dynamic Greeks at each step")
+    axs[0, 1].grid(True, linestyle='--', alpha=0.3)
+    axs[0, 1].legend()
+
+    axs[1, 1].bar(steps, avg_d_unexpl, width=1.0, color='black', alpha=0.7)
+    axs[1, 1].axhline(0, color='black', linestyle='--')
+    axs[1, 1].set_xlabel("Time (days)")
 
     plt.tight_layout()
-    print("📁 Fichier enregistré dans :", os.getcwd())
+    plt.savefig("fixed_v_dynamicgreeks_shockedparams", dpi=300)
+    plt.savefig("shock_vs_shock_dynamic", dpi=300)
+    print("✅ Figure enregistrée dans :", os.getcwd())
     plt.show()
 
-    return pnl_total_list, pnl_explained_list, pnl_unexplained_list
+    return fixed_tot, fixed_expl, fixed_unexpl, dyn_tot, dyn_expl, dyn_unexpl
 
 
 
@@ -157,38 +165,41 @@ forward_model = ForwardStart(S0=5667.65,
                              sigma=calibrated_params["sigma"],
                              rho=calibrated_params["rho"])
 
-pnl_totals, pnl_explained, pnl_unexplained = simulate_forward_pnl_life(S, v, forward_model, T1=0.75, T2=1.5, kappa_path=kappa_path, theta_path=theta_path, sigma_path=sigma_path, rho_path=rho_path)
+fixed_tot, fixed_expl, fixed_unexpl, dyn_tot, dyn_expl, dyn_unexpl = simulate_forward_pnl_life_dual_with_shocks(S=S, v=v, forward_model=forward_model, T1=0.75, T2=1.5, kappa_path=kappa_path, theta_path=theta_path, sigma_path=sigma_path, rho_path=rho_path)
 import numpy as np
 
-flat_pnl_total = np.concatenate(pnl_totals)
-flat_pnl_explained = np.concatenate(pnl_explained)
-flat_pnl_unexplained = np.concatenate(pnl_unexplained)
+# pnl_totals, pnl_explained, pnl_unexplained = simulate_forward_pnl_life(S, v, forward_model, T1=0.75, T2=1.5)
+import numpy as np
+from scipy.stats import skew, kurtosis
 
-for i in range(len(pnl_totals)):
-    if np.any(np.isnan(pnl_totals[i])):
-        print(f"⚠️ NaN détecté dans pnl_totals à l’étape {i}")
+# Flatten
+flat_fixed_tot = np.concatenate(fixed_tot)
+flat_fixed_expl = np.concatenate(fixed_expl)
+flat_fixed_unexpl = np.concatenate(fixed_unexpl)
 
+flat_dyn_tot = np.concatenate(dyn_tot)
+flat_dyn_expl = np.concatenate(dyn_expl)
+flat_dyn_unexpl = np.concatenate(dyn_unexpl)
 
-print("🔍 Résumé de l’analyse du PnL de l’option forward start (sur toute sa durée de vie) :")
-print("----------------------------------------------------------")
-print(f"Nombre total de points analysés  : {len(flat_pnl_total)}")
-print("")
+def print_stats(label, tot, expl, unexpl):
+    ratio_inexplique = np.sum(np.abs(unexpl)) / np.sum(np.abs(tot))
+    rmse = np.sqrt(np.mean(unexpl**2))
+    print(f"🔍 {label} PnL Analysis")
+    print("----------------------------------------------------------")
+    print(f"Nombre total de points analysés : {len(tot)}\n")
+    print("📊 Statistiques globales :")
+    print(f"→ PnL total      : Moy = {np.mean(tot):.6f} | Std = {np.std(tot):.6f}")
+    print(f"→ PnL expliqué   : Moy = {np.mean(expl):.6f} | Std = {np.std(expl):.6f}")
+    print(f"→ PnL inexpliqué : Moy = {np.mean(unexpl):.6f} | Std = {np.std(unexpl):.6f}")
+    print("")
+    print(f"📉 Ratio inexpliqué / total : {ratio_inexplique:.2%}")
+    print(f"→ RMSE (inexpliqué)         : {rmse:.6f}")
+    print(f"→ Skewness (inexpliqué)     : {skew(unexpl):.4f}")
+    print(f"→ Kurtosis (inexpliqué)     : {kurtosis(unexpl):.4f}")
+    print("----------------------------------------------------------\n")
 
-print("📊 Statistiques globales :")
-print(f"→ PnL total      : Moy = {np.mean(flat_pnl_total):.6f} | Std = {np.std(flat_pnl_total):.6f}")
-print(f"→ PnL expliqué   : Moy = {np.mean(flat_pnl_explained):.6f} | Std = {np.std(flat_pnl_explained):.6f}")
-print(f"→ PnL inexpliqué : Moy = {np.mean(flat_pnl_unexplained):.6f} | Std = {np.std(flat_pnl_unexplained):.6f}")
-print("")
+# 🔹 Stats pour Fixed Greeks
+print_stats("Fixed Greeks", flat_fixed_tot, flat_fixed_expl, flat_fixed_unexpl)
 
-# Ratio inexpliqué
-ratio_inexplique = np.sum(np.abs(flat_pnl_unexplained)) / np.sum(np.abs(flat_pnl_total))
-print("📉 Ratio inexpliqué / total :", f"{ratio_inexplique:.2%}")
-
-# RMSE + skew + kurt
-rmse = np.sqrt(np.mean(flat_pnl_unexplained**2))
-skew = stats.skew(flat_pnl_unexplained)
-kurt = stats.kurtosis(flat_pnl_unexplained)
-print(f"→ RMSE (inexpliqué)           : {rmse:.6f}")
-print(f"→ Skewness (inexpliqué)       : {skew:.4f}")
-print(f"→ Kurtosis (inexpliqué)       : {kurt:.4f}")
-print("----------------------------------------------------------")
+# 🔹 Stats pour Dynamic Greeks
+print_stats("Dynamic Greeks", flat_dyn_tot, flat_dyn_expl, flat_dyn_unexpl)
