@@ -384,6 +384,7 @@ def plot_terminal_distributions(S, v):
     axs[1].legend()
 
     plt.tight_layout()
+
     plt.show()
 
 

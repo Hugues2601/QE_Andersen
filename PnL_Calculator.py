@@ -166,15 +166,18 @@ def analyze_pnl_numpy(pnl_tot, pnl_explained, bins=100):
     rmse = np.sqrt(np.mean((pnl_unexplained) ** 2))
     corr = np.corrcoef(pnl_tot, pnl_unexplained)[0, 1]
 
-    print(f"corr: {corr}")
-    print("Analyse du PnL inexpliqué :")
-    print(f"Ratio inexpliqué / total       : {ratio:.2%}")
-    print(f"RMSE                           : {rmse}")
-    print(f"Moyenne inexpliqué             : {np.mean(pnl_unexplained):.6f}")
-    print(f"Écart-type inexpliqué          : {np.std(pnl_unexplained):.6f}")
-    print(f"Skewness                       : {stats.skew(pnl_unexplained):.4f}")
-    print(f"Kurtosis                       : {stats.kurtosis(pnl_unexplained):.4f}")
+    print("Unexplained PnL Analysis:")
+    print(f"→ Unexplained / Total Ratio        : {ratio:.2%}")
+    print(f"→ Mean Unexplained PnL             : {np.mean(pnl_unexplained):.6f}")
+    print(f"→ Std Dev of Unexplained PnL       : {np.std(pnl_unexplained):.6f}")
+    print(f"→ Skewness                         : {stats.skew(pnl_unexplained):.4f}")
+    print(f"→ Kurtosis                         : {stats.kurtosis(pnl_unexplained):.4f}")
     print("")
+    print("Additional Info:")
+    print(f"→ Mean Total PnL                   : {np.mean(pnl_tot):.6f}")
+    print(f"→ Std Dev of Total PnL             : {np.std(pnl_tot):.6f}")
+    print(f"→ Mean Explained PnL               : {np.mean(pnl_explained):.6f}")
+    print(f"→ Std Dev of Explained PnL         : {np.std(pnl_explained):.6f}")
 
     # Histogramme
     plt.figure(figsize=(10, 5))
@@ -227,7 +230,7 @@ def analyze_pnl_numpy(pnl_tot, pnl_explained, bins=100):
 
 
     # Create figure with two subplots
-    fig, axs = plt.subplots(2, 1, figsize=(12, 8), sharex=False)
+    fig, axs = plt.subplots(1, 2, figsize=(14, 5), sharex=False)
 
     # Histogram of unexplained PnL
     axs[0].hist(pnl_unexplained, bins=100, alpha=0.75, color='black', edgecolor='white')
@@ -246,6 +249,7 @@ def analyze_pnl_numpy(pnl_tot, pnl_explained, bins=100):
 
     # Layout
     plt.tight_layout()
+    plt.savefig("unexplained_pnl_analysis.png", dpi=300, bbox_inches='tight')
     plt.show()
 
 
