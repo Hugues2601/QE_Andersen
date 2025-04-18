@@ -218,12 +218,36 @@ def analyze_pnl_numpy(pnl_tot, pnl_explained, bins=100):
     plt.figure(figsize=(12, 5))
     plt.scatter(np.arange(len(pnl_unexplained)), pnl_unexplained, alpha=0.6, color='black', s=10)
     plt.axhline(0, color='gray', linestyle='dashed', linewidth=1)
-    plt.title("Scatter plot des PnL inexpliqués (résidus)")
-    plt.xlabel("Chemin")
-    plt.ylabel("PnL inexpliqué")
+    plt.title("")
+    plt.xlabel("Path")
+    plt.ylabel("Unexplained PnL")
     plt.grid(True, linestyle='--', alpha=0.3)
     plt.tight_layout()
     plt.show()
+
+
+    # Create figure with two subplots
+    fig, axs = plt.subplots(2, 1, figsize=(12, 8), sharex=False)
+
+    # Histogram of unexplained PnL
+    axs[0].hist(pnl_unexplained, bins=100, alpha=0.75, color='black', edgecolor='white')
+    axs[0].set_title("Distribution of Unexplained PnL")
+    axs[0].set_xlabel("Unexplained PnL")
+    axs[0].set_ylabel("Frequency")
+    axs[0].grid(True, linestyle='--', alpha=0.3)
+
+    # Scatter plot of unexplained PnL per path
+    axs[1].scatter(np.arange(len(pnl_unexplained)), pnl_unexplained, alpha=0.6, color='black', s=10)
+    axs[1].axhline(0, color='gray', linestyle='dashed', linewidth=1)
+    axs[1].set_title("Unexplained PnL by Path")
+    axs[1].set_xlabel("Path Index")
+    axs[1].set_ylabel("Unexplained PnL")
+    axs[1].grid(True, linestyle='--', alpha=0.3)
+
+    # Layout
+    plt.tight_layout()
+    plt.show()
+
 
 
 

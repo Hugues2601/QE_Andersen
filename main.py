@@ -28,7 +28,7 @@ S, v = simulate_heston_qe(5667.65,
 
 plot_terminal_distributions(S, v)
 
-St, St1, vt, vt1 = extract_snapshots(S, v, t=100)
+St, St1, vt, vt1 = extract_snapshots(S, v, t=50)
 
 forward_model = ForwardStart(S0=5667.65,
                              k=1,
