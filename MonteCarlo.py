@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 def simulate_heston_qe(
         S0=100.0, v0=0.04, r=0.0,
         kappa=1.5, theta=0.04, xi=0.3, rho=-0.7,
-        T=3, dt=1 / 252, n_paths=10_000, seed=42
+        T=3, dt=1 / 252, n_paths=30_000, seed=42
 ):
     if seed is not None:
         np.random.seed(seed)
@@ -53,6 +53,44 @@ def simulate_heston_qe(
 
         v[t + 1] = v_next
         S[t + 1] = S[t] * np.exp((r - 0.5 * vt) * dt + np.sqrt(vt * dt) * Z_s)
+
+    # Plot
+    time_grid = np.linspace(0, T, n_steps + 1)
+    n_plot_paths = 1000  # Only a few paths for clarity
+
+    # Pastel colors palette
+    pastel_colors = [
+        "#F0F0F0",  # Gris ultra clair
+        "#D9D9D9",  # Gris perle
+        "#C0C0C0",  # Argent doux
+        "#A9A9A9",  # Gris moyen
+        "#999999",  # Gris plus dense
+        "#8C8C8C",  # Graphite léger
+        "#808080",  # Gris standard
+        "#737373",  # Slate doux
+        "#666666",  # Asphalte clair
+        "#595959",  # Gris anthracite doux
+    ]
+
+    fig, axs = plt.subplots(2, 1, figsize=(12, 8), sharex=True)
+
+    # Plot S_t (prices)
+    for i in range(n_plot_paths):
+        axs[0].plot(time_grid, S[:, i], color=pastel_colors[i % len(pastel_colors)], alpha=0.9)
+    axs[0].set_title('Simulated Paths of $S_t$', fontsize=14)
+    axs[0].set_ylabel('Price $S_t$', fontsize=12)
+    axs[0].grid(True, linestyle='--', alpha=0.5)
+
+    # Plot v_t (variance)
+    for i in range(n_plot_paths):
+        axs[1].plot(time_grid, v[:, i], color=pastel_colors[i % len(pastel_colors)], alpha=0.9)
+    axs[1].set_title('Simulated Paths of $v_t$', fontsize=14)
+    axs[1].set_ylabel('Variance $v_t$', fontsize=12)
+    axs[1].set_xlabel('Time (years)', fontsize=12)
+    axs[1].grid(True, linestyle='--', alpha=0.5)
+
+    plt.tight_layout()
+    plt.show()
 
     return S, v
 
@@ -188,29 +226,31 @@ def plot_terminal_distributions(S, v):
     S_T = S[-1]
     v_T = v[-1]
 
-    # Plot de S_T
-    plt.figure(figsize=(10, 5))
-    plt.hist(S_T, bins=100, density=True, alpha=0.7)
-    plt.axvline(np.mean(S_T), color='red', linestyle='dashed', label='Moyenne')
-    plt.title("Distribution de $S_T$ (prix de l'actif à maturité)")
-    plt.xlabel("$S_T$")
-    plt.ylabel("Densité")
-    plt.grid(True)
-    plt.legend()
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    fig, axs = plt.subplots(1, 2, figsize=(14, 5))
+
+    # Histogramme de S_T
+    axs[0].hist(S_T, bins=100, density=False, color='black', alpha=0.7)
+    # axs[0].axvline(np.mean(S_T), color='gray', linestyle='dashed', label='Mean')
+    axs[0].set_title("Distribution of $S_T$")
+    axs[0].set_xlabel("$S_T$")
+    axs[0].set_ylabel("Nb of observations")
+    axs[0].grid(True, linestyle='--', alpha=0.3)
+    axs[0].legend()
+
+    # Histogramme de v_T
+    axs[1].hist(v_T, bins=100, density=False, color='black', alpha=0.7)
+    # axs[1].axvline(np.mean(v_T), color='gray', linestyle='dashed', label='Mean')
+    axs[1].set_title("Distribution of $v_T$ (Terminal Variance)")
+    axs[1].set_xlabel("$v_T$")
+    axs[1].set_ylabel("Nb of observations")
+    axs[1].grid(True, linestyle='--', alpha=0.3)
+    axs[1].legend()
+
+    plt.tight_layout()
     plt.show()
-
-    # Plot de v_T
-    plt.figure(figsize=(10, 5))
-    plt.hist(v_T, bins=100, density=True, color='orange', alpha=0.7)
-    plt.axvline(np.mean(v_T), color='red', linestyle='dashed', label='Moyenne')
-    plt.title("Distribution de $v_T$ (variance instantanée à maturité)")
-    plt.xlabel("$v_T$")
-    plt.ylabel("Densité")
-    plt.grid(True)
-    plt.legend()
-    plt.show()
-
-
 
 
 def extract_snapshots(S, v, t):

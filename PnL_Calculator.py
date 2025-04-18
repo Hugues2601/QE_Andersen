@@ -163,9 +163,13 @@ def analyze_pnl_numpy(pnl_tot, pnl_explained, bins=100):
 
     pnl_unexplained = pnl_tot - pnl_explained
     ratio = np.sum(np.abs(pnl_unexplained)) / np.sum(np.abs(pnl_tot))
+    rmse = np.sqrt(np.mean((pnl_unexplained) ** 2))
+    corr = np.corrcoef(pnl_tot, pnl_unexplained)[0, 1]
 
+    print(f"corr: {corr}")
     print("Analyse du PnL inexpliqué :")
     print(f"Ratio inexpliqué / total       : {ratio:.2%}")
+    print(f"RMSE                           : {rmse}")
     print(f"Moyenne inexpliqué             : {np.mean(pnl_unexplained):.6f}")
     print(f"Écart-type inexpliqué          : {np.std(pnl_unexplained):.6f}")
     print(f"Skewness                       : {stats.skew(pnl_unexplained):.4f}")
@@ -210,6 +214,18 @@ def analyze_pnl_numpy(pnl_tot, pnl_explained, bins=100):
     plt.legend()
     plt.grid(True)
     plt.show()
+
+    plt.figure(figsize=(12, 5))
+    plt.scatter(np.arange(len(pnl_unexplained)), pnl_unexplained, alpha=0.6, color='black', s=10)
+    plt.axhline(0, color='gray', linestyle='dashed', linewidth=1)
+    plt.title("Scatter plot des PnL inexpliqués (résidus)")
+    plt.xlabel("Chemin")
+    plt.ylabel("PnL inexpliqué")
+    plt.grid(True, linestyle='--', alpha=0.3)
+    plt.tight_layout()
+    plt.show()
+
+
 
 
 

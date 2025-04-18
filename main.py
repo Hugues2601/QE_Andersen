@@ -10,21 +10,21 @@ from PnL_Calculator import compute_pathwise_pnl, analyze_pnl_numpy, compute_path
 calibrated_params = {'kappa': 2.41300630569458, 'v0': 0.029727613553404808, 'theta': 0.04138144478201866,
                      'sigma': 0.3084869682788849, 'rho': -0.8905978202819824}
 
-# S, v = simulate_heston_qe(5667.65,
-#                    calibrated_params["v0"],
-#                    0.03927,
-#                    calibrated_params["kappa"],
-#                    calibrated_params["theta"],
-#                    calibrated_params["sigma"],
-#                    calibrated_params["rho"])
-
-S, v, new_params = simulate_heston_qe_with_stochastic_params(5667.65,
+S, v = simulate_heston_qe(5667.65,
                    calibrated_params["v0"],
                    0.03927,
                    calibrated_params["kappa"],
                    calibrated_params["theta"],
                    calibrated_params["sigma"],
                    calibrated_params["rho"])
+
+# S, v, new_params = simulate_heston_qe_with_stochastic_params(5667.65,
+#                    calibrated_params["v0"],
+#                    0.03927,
+#                    calibrated_params["kappa"],
+#                    calibrated_params["theta"],
+#                    calibrated_params["sigma"],
+#                    calibrated_params["rho"])
 
 plot_terminal_distributions(S, v)
 
@@ -42,9 +42,9 @@ forward_model = ForwardStart(S0=5667.65,
                              sigma=calibrated_params["sigma"],
                              rho=calibrated_params["rho"])
 
-# pnl_tot = compute_pathwise_pnl(St, St1, vt, vt1, forward_model)
+pnl_tot = compute_pathwise_pnl(St, St1, vt, vt1, forward_model)
 
-pnl_tot = compute_pathwise_pnl_choc(St, St1, vt, vt1, forward_model, new_params)
+# pnl_tot = compute_pathwise_pnl_choc(St, St1, vt, vt1, forward_model, new_params)
 
 pnl_tot = pnl_tot.detach().cpu().numpy()
 
@@ -61,7 +61,7 @@ vanna_contribution = vanna * (St1-St) * (np.sqrt(vt1) - np.sqrt(vt))
 volga_contribution = 0.5 * volga * (np.sqrt(vt1) - np.sqrt(vt))**2
 
 
-pnl_explained = delta_contribution + vega_contribution + theta_contribution + volga_contribution
+pnl_explained = delta_contribution + vega_contribution + theta_contribution + volga_contribution + vanna_contribution
 print("pnl_explained", pnl_explained)
 print("pnl_tot", pnl_tot)
 
