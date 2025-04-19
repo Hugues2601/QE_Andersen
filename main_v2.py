@@ -141,7 +141,7 @@ S, v = simulate_heston_qe(5667.65,
                    calibrated_params["theta"],
                    calibrated_params["sigma"],
                    calibrated_params["rho"],
-                          n_paths=1)
+                          n_paths=1, seed=1579)
 
 
 

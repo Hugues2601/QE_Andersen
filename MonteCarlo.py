@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from matplotlib import gridspec
+
 
 def simulate_heston_qe(
         S0=100.0, v0=0.04, r=0.0,
@@ -72,34 +74,45 @@ def simulate_heston_qe(
         "#595959",  # Gris anthracite doux
     ]
 
-    fig, axs = plt.subplots(2, 1, figsize=(12, 8), sharex=True)
+    fig, axs = plt.subplots(2, 2, figsize=(12, 6), width_ratios=[2.5, 1.5])
 
-    # Plot S_t (prices)
+    # --- Simulated Paths of S_t ---
     for i in range(n_plot_paths):
-        axs[0].plot(time_grid, S[:, i], color=pastel_colors[i % len(pastel_colors)], alpha=0.9)
-    axs[0].set_title('Simulated Paths of $S_t$', fontsize=14)
-    axs[0].set_ylabel('Price $S_t$', fontsize=12)
-    axs[0].grid(True, linestyle='--', alpha=0.5)
+        axs[0, 0].plot(time_grid, S[:, i], color=pastel_colors[i % len(pastel_colors)], alpha=0.9)
+    axs[0, 0].set_title('Simulated Paths of $S_t$', fontsize=14)
+    axs[0, 0].set_ylabel('Price $S_t$', fontsize=12)
+    axs[0, 0].grid(True, linestyle='--', alpha=0.5)
 
-    # Plot v_t (variance)
+    # --- Distribution of S_T ---
+    axs[0, 1].hist(S[-1, :], bins=100, color='black', edgecolor='black')
+    axs[0, 1].set_title('Distribution of $S_T$', fontsize=14)
+    axs[0, 1].set_yticks([])
+    axs[0, 1].grid(True, linestyle='--', alpha=0.5)
+
+    # --- Simulated Paths of v_t ---
     for i in range(n_plot_paths):
-        axs[1].plot(time_grid, v[:, i], color=pastel_colors[i % len(pastel_colors)], alpha=0.9)
-    axs[1].set_title('Simulated Paths of $v_t$', fontsize=14)
-    axs[1].set_ylabel('Variance $v_t$', fontsize=12)
-    axs[1].set_xlabel('Time (years)', fontsize=12)
-    axs[1].grid(True, linestyle='--', alpha=0.5)
+        axs[1, 0].plot(time_grid, v[:, i], color=pastel_colors[i % len(pastel_colors)], alpha=0.9)
+    axs[1, 0].set_title('Simulated Paths of $v_t$', fontsize=14)
+    axs[1, 0].set_ylabel('Variance $v_t$', fontsize=12)
+    axs[1, 0].set_xlabel('Time (years)', fontsize=12)
+    axs[1, 0].grid(True, linestyle='--', alpha=0.5)
+
+    # --- Distribution of v_T ---
+    axs[1, 1].hist(v[-1, :], bins=100, color='black', edgecolor='black')
+    axs[1, 1].set_title('Distribution of $v_T$', fontsize=14)
+    axs[1, 1].set_yticks([])
+    axs[1, 1].grid(True, linestyle='--', alpha=0.5)
 
     plt.tight_layout()
     plt.show()
 
     return S, v
 
-
 def simulate_heston_qe_with_stochastic_params(
     S0=100.0, v0=0.04, r=0.0,
     kappa=1.5, theta=0.04, xi=0.3, rho=-0.7,
     T=3, dt=1 / 252, n_paths=30_000, seed=42,
-    shock_std={"kappa": 0.005, "theta": 0.0002, "xi": 0.0002, "rho": 0.0002},
+    shock_std={"kappa": 0.05, "theta": 0.002, "xi": 0.002, "rho": 0.002},
     reversion_speed=0.95, t_time=50
 ):
     if seed is not None:
@@ -171,27 +184,50 @@ def simulate_heston_qe_with_stochastic_params(
         v[t + 1] = v_next
         S[t + 1] = S[t] * np.exp((r - 0.5 * vt) * dt + np.sqrt(vt * dt) * Z_s)
 
-    plt.figure(figsize=(14, 8))
+    pastel_colors = [
+        "#F0F0F0",  # Gris ultra clair
+        "#D9D9D9",  # Gris perle
+        "#C0C0C0",  # Argent doux
+        "#A9A9A9",  # Gris moyen
+        "#999999",  # Gris plus dense
+        "#8C8C8C",  # Graphite léger
+        "#808080",  # Gris standard
+        "#737373",  # Slate doux
+        "#666666",  # Asphalte clair
+        "#595959",  # Gris anthracite doux
+    ]
 
-    plt.subplot(2, 2, 1)
-    plt.plot(kappa_path)
-    plt.title("Évolution de kappa")
-    plt.grid(True)
+    n_plot_paths = 1000
+    time_grid = np.linspace(0, T, n_steps + 1)
 
-    plt.subplot(2, 2, 2)
-    plt.plot(theta_path)
-    plt.title("Évolution de theta")
-    plt.grid(True)
+    fig, axs = plt.subplots(2, 2, figsize=(12, 6), width_ratios=[2.5, 1.5])
 
-    plt.subplot(2, 2, 3)
-    plt.plot(xi_path)
-    plt.title("Évolution de xi (vol of vol)")
-    plt.grid(True)
+    # --- Simulated Paths of S_t ---
+    for i in range(n_plot_paths):
+        axs[0, 0].plot(time_grid, S[:, i], color=pastel_colors[i % len(pastel_colors)], alpha=0.9)
+    axs[0, 0].set_title('Simulated Paths of $S_t$', fontsize=14)
+    axs[0, 0].set_ylabel('Price $S_t$', fontsize=12)
+    axs[0, 0].grid(True, linestyle='--', alpha=0.5)
 
-    plt.subplot(2, 2, 4)
-    plt.plot(rho_path)
-    plt.title("Évolution de rho")
-    plt.grid(True)
+    # --- Distribution of S_T ---
+    axs[0, 1].hist(S[-1, :], bins=100, color='black', edgecolor='black')
+    axs[0, 1].set_title('Distribution of $S_T$', fontsize=14)
+    axs[0, 1].set_yticks([])
+    axs[0, 1].grid(True, linestyle='--', alpha=0.5)
+
+    # --- Simulated Paths of v_t ---
+    for i in range(n_plot_paths):
+        axs[1, 0].plot(time_grid, v[:, i], color=pastel_colors[i % len(pastel_colors)], alpha=0.9)
+    axs[1, 0].set_title('Simulated Paths of $v_t$', fontsize=14)
+    axs[1, 0].set_ylabel('Variance $v_t$', fontsize=12)
+    axs[1, 0].set_xlabel('Time (years)', fontsize=12)
+    axs[1, 0].grid(True, linestyle='--', alpha=0.5)
+
+    # --- Distribution of v_T ---
+    axs[1, 1].hist(v[-1, :], bins=100, color='black', edgecolor='black')
+    axs[1, 1].set_title('Distribution of $v_T$', fontsize=14)
+    axs[1, 1].set_yticks([])
+    axs[1, 1].grid(True, linestyle='--', alpha=0.5)
 
     plt.tight_layout()
     plt.show()
