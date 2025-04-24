@@ -228,20 +228,28 @@ def analyze_pnl_numpy(pnl_tot, pnl_explained, bins=100):
     plt.tight_layout()
     plt.show()
 
-
     # Create figure with two subplots
     fig, axs = plt.subplots(1, 2, figsize=(14, 5), sharex=False)
 
-    # Histogram of unexplained PnL
-    axs[0].hist(pnl_unexplained, bins=100, alpha=0.75, color='black', edgecolor='white')
+    # Histogram of unexplained PnL with xlim
+    axs[0].hist(pnl_unexplained, bins=150, alpha=0.75, color='black', edgecolor='white')
     axs[0].set_title("Distribution of Unexplained PnL")
     axs[0].set_xlabel("Unexplained PnL")
     axs[0].set_ylabel("Frequency")
     axs[0].grid(True, linestyle='--', alpha=0.3)
+    axs[0].set_xlim(-1, 1)  # 💡 Limite l'axe horizontal entre -1 et 1
 
     # Scatter plot of unexplained PnL per path
     axs[1].scatter(np.arange(len(pnl_unexplained)), pnl_unexplained, alpha=0.6, color='black', s=10)
     axs[1].axhline(0, color='gray', linestyle='dashed', linewidth=1)
+
+    # 💡 Ajoute lignes moyenne et médiane
+    mean_pnl = np.mean(pnl_unexplained)
+    median_pnl = np.median(pnl_unexplained)
+
+    axs[1].axhline(mean_pnl, color='red', linestyle='--', linewidth=1, label=f'Mean = {mean_pnl:.2e}')
+    axs[1].legend(fontsize=9, loc='upper right')
+
     axs[1].set_title("Unexplained PnL by Path")
     axs[1].set_xlabel("Path Index")
     axs[1].set_ylabel("Unexplained PnL")

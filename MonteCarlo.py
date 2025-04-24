@@ -58,20 +58,20 @@ def simulate_heston_qe(
 
     # Plot
     time_grid = np.linspace(0, T, n_steps + 1)
-    n_plot_paths = 1  # Only a few paths for clarity
+    n_plot_paths = 10  # Only a few paths for clarity
 
     # Pastel colors palette
     pastel_colors = [
-        "#F0F0F0",  # Gris ultra clair
-        "#D9D9D9",  # Gris perle
-        "#C0C0C0",  # Argent doux
-        "#A9A9A9",  # Gris moyen
-        "#999999",  # Gris plus dense
-        "#8C8C8C",  # Graphite léger
-        "#808080",  # Gris standard
-        "#737373",  # Slate doux
-        "#666666",  # Asphalte clair
-        "#595959",  # Gris anthracite doux
+        "#AEC6CF",  # Bleu pastel
+        "#FFB347",  # Orange pastel
+        "#B39EB5",  # Lavande
+        "#77DD77",  # Vert menthe
+        "#FF6961",  # Rouge corail doux
+        "#FDFD96",  # Jaune pastel
+        "#CFCFC4",  # Gris clair neutre
+        "#779ECB",  # Bleu acier pastel
+        "#DEA5A4",  # Rose doux
+        "#CB99C9",  # Mauve pâle
     ]
 
     fig, axs = plt.subplots(2, 2, figsize=(12, 6), width_ratios=[2.5, 1.5])
@@ -83,11 +83,14 @@ def simulate_heston_qe(
     axs[0, 0].set_ylabel('Price $S_t$', fontsize=12)
     axs[0, 0].grid(True, linestyle='--', alpha=0.5)
 
-    # --- Distribution of S_T ---
-    axs[0, 1].hist(S[-1, :], bins=100, color='black', edgecolor='black')
-    axs[0, 1].set_title('Distribution of $S_T$', fontsize=14)
+    # --- Distribution of log-returns ---
+    log_returns = np.log(S[1:] / S[:-1])
+    flat_log_returns = log_returns.flatten()
+    axs[0, 1].hist(flat_log_returns, bins=100, color='black', edgecolor='black')
+    axs[0, 1].set_title('Distribution of log-returns $\\log(S_{t+1}/S_t)$', fontsize=14)
     axs[0, 1].set_yticks([])
     axs[0, 1].grid(True, linestyle='--', alpha=0.5)
+
 
     # --- Simulated Paths of v_t ---
     for i in range(n_plot_paths):
@@ -97,9 +100,11 @@ def simulate_heston_qe(
     axs[1, 0].set_xlabel('Time (years)', fontsize=12)
     axs[1, 0].grid(True, linestyle='--', alpha=0.5)
 
-    # --- Distribution of v_T ---
-    axs[1, 1].hist(v[-1, :], bins=100, color='black', edgecolor='black')
-    axs[1, 1].set_title('Distribution of $v_T$', fontsize=14)
+    # --- Distribution of volatility changes ---
+    dv = v[1:] - v[:-1]
+    flat_dv = dv.flatten()
+    axs[1, 1].hist(flat_dv, bins=100, color='black', edgecolor='black')
+    axs[1, 1].set_title('Distribution of volatility changes $v_{t+1} - v_t$', fontsize=14)
     axs[1, 1].set_yticks([])
     axs[1, 1].grid(True, linestyle='--', alpha=0.5)
 

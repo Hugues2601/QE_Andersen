@@ -16,7 +16,7 @@ S, v = simulate_heston_qe(5667.65,
                    calibrated_params["kappa"],
                    calibrated_params["theta"],
                    calibrated_params["sigma"],
-                   calibrated_params["rho"])
+                   calibrated_params["rho"], n_paths=30_000, seed=42)
 
 # S, v, new_params = simulate_heston_qe_with_stochastic_params(5667.65,
 #                    calibrated_params["v0"],
@@ -61,7 +61,7 @@ vanna_contribution = vanna * (St1-St) * (np.sqrt(vt1) - np.sqrt(vt))
 volga_contribution = 0.5 * volga * (np.sqrt(vt1) - np.sqrt(vt))**2
 
 
-pnl_explained = vega_contribution
+pnl_explained = delta_contribution + vega_contribution + theta_contribution + vanna_contribution + volga_contribution
 print("pnl_explained", pnl_explained)
 print("pnl_tot", pnl_tot)
 

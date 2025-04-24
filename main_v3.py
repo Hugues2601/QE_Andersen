@@ -60,11 +60,11 @@ def simulate_forward_pnl_life_dual_with_shocks(S, v, forward_model, T1, T2,
             pnl_tot = price_t1 - price_t
 
             if greeks_dynamic:
-                delta = model_t_greek.compute_greek("delta")
-                vega = model_t_greek.compute_greek("vega")
-                theta = model_t_greek.compute_greek("theta")
-                vanna = model_t_greek.compute_greek("vanna")
-                volga = model_t_greek.compute_greek("volga")
+                delta = model_t.compute_greek("delta")
+                vega = model_t.compute_greek("vega")
+                theta = model_t.compute_greek("theta")
+                vanna = model_t.compute_greek("vanna")
+                volga = model_t.compute_greek("volga")
 
             delta_c = delta * (St1 - St)
             vega_c = vega * (np.sqrt(vt1) - np.sqrt(vt))

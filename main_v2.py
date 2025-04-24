@@ -169,6 +169,8 @@ from scipy.stats import skew, kurtosis
 flat_fixed_tot = np.concatenate(fixed_tot)
 flat_fixed_expl = np.concatenate(fixed_expl)
 flat_fixed_unexpl = np.concatenate(fixed_unexpl)
+print(flat_fixed_unexpl)
+print(fixed_unexpl)
 
 flat_dyn_tot = np.concatenate(dyn_tot)
 flat_dyn_expl = np.concatenate(dyn_expl)
