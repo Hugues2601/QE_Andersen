@@ -2,7 +2,7 @@ from config import CONFIG
 import torch
 from ForwardStart import ForwardStart
 
-def compute_pathwise_pnl(S_t, S_tp1, v_t, v_tp1, base_model):
+def compute_pathwise_pnl(S_t, S_tp1, v_t, v_tp1, base_model, batch_size=1000, sub_batch_size=100):
     """
     Calcule le PnL pathwise entre t et t+1 en utilisant les paramètres simulés et le modèle ForwardStart.
 
@@ -14,6 +14,10 @@ def compute_pathwise_pnl(S_t, S_tp1, v_t, v_tp1, base_model):
         Valeurs de v_t et v_{t+1} pour chaque chemin.
     base_model : ForwardStart
         Modèle ForwardStart instancié avec les bons paramètres fixes (T0, T1, T2, etc.)
+    batch_size : int
+        Nombre de chemins traités à la fois dans un batch principal.
+    sub_batch_size : int
+        Nombre de chemins traités à la fois dans un sous-batch interne.
 
     Retourne
     --------
@@ -31,44 +35,87 @@ def compute_pathwise_pnl(S_t, S_tp1, v_t, v_tp1, base_model):
     # Tenseur du strike
     k = base_model.k.item()
 
-    # Clone du modèle à t
-    model_t = ForwardStart(
-        S0=S_t,
-        k=k,
-        T0=base_model.T0.item(),
-        T1=base_model.T1.item(),
-        T2=base_model.T2.item(),
-        r=base_model.r.item(),
-        kappa=base_model.kappa.item(),
-        v0=v_t,
-        theta=base_model.theta.item(),
-        sigma=base_model.sigma.item(),
-        rho=base_model.rho.item()
-    )
+    # Constantes fixes
+    T0 = base_model.T0.item()
+    T1 = base_model.T1.item()
+    T2 = base_model.T2.item()
+    r = base_model.r.item()
+    kappa = base_model.kappa.item()
+    theta = base_model.theta.item()
+    sigma = base_model.sigma.item()
+    rho = base_model.rho.item()
 
-    # Clone du modèle à t+1
-    model_tp1 = ForwardStart(
-        S0=S_tp1,
-        k=k,
-        T0=base_model.T0.item(),
-        T1=base_model.T1.item()-(1/252),
-        T2=base_model.T2.item()-(1/252),
-        r=base_model.r.item(),
-        kappa=base_model.kappa.item(),
-        v0=v_tp1,
-        theta=base_model.theta.item(),
-        sigma=base_model.sigma.item(),
-        rho=base_model.rho.item()
-    )
+    n_paths = S_t.shape[0]
+    pnl_list = []
 
-    # Prix des options à t et t+1 (shape: n_paths,)
-    price_t = model_t.heston_price()
-    price_tp1 = model_tp1.heston_price()
+    with torch.no_grad():
+        for i in range(0, n_paths, batch_size):
+            i_end = min(i + batch_size, n_paths)
 
-    pnl = price_tp1 - price_t
+            # batch slice
+            S_t_batch = S_t[i:i_end]
+            S_tp1_batch = S_tp1[i:i_end]
+            v_t_batch = v_t[i:i_end]
+            v_tp1_batch = v_tp1[i:i_end]
+
+            price_t_list = []
+            price_tp1_list = []
+
+            for j in range(0, i_end - i, sub_batch_size):
+                j_end = min(j + sub_batch_size, i_end - i)
+
+                # sub-batch slice
+                S_t_sub = S_t_batch[j:j_end]
+                S_tp1_sub = S_tp1_batch[j:j_end]
+                v_t_sub = v_t_batch[j:j_end]
+                v_tp1_sub = v_tp1_batch[j:j_end]
+
+                # Modèle t
+                model_t = ForwardStart(
+                    S0=S_t_sub,
+                    k=k,
+                    T0=T0,
+                    T1=T1,
+                    T2=T2,
+                    r=r,
+                    kappa=kappa,
+                    v0=v_t_sub,
+                    theta=theta,
+                    sigma=sigma,
+                    rho=rho
+                )
+                price_t_sub = model_t.heston_price()
+                price_t_list.append(price_t_sub)
+
+                # Modèle t+1
+                model_tp1 = ForwardStart(
+                    S0=S_tp1_sub,
+                    k=k,
+                    T0=T0,
+                    T1=T1 - (1/252),
+                    T2=T2 - (1/252),
+                    r=r,
+                    kappa=kappa,
+                    v0=v_tp1_sub,
+                    theta=theta,
+                    sigma=sigma,
+                    rho=rho
+                )
+                price_tp1_sub = model_tp1.heston_price()
+                price_tp1_list.append(price_tp1_sub)
+
+            # Concaténer
+            price_t = torch.cat(price_t_list, dim=0)
+            price_tp1 = torch.cat(price_tp1_list, dim=0)
+
+            pnl_batch = price_tp1 - price_t
+            pnl_list.append(pnl_batch)
+
+    pnl = torch.cat(pnl_list, dim=0)
     return pnl
 
-def compute_pathwise_pnl_choc(S_t, S_tp1, v_t, v_tp1, base_model, new_params, batch_size=1000):
+
+def compute_pathwise_pnl_choc(S_t, S_tp1, v_t, v_tp1, base_model, new_params, batch_size=1000, sub_batch_size=100):
     device = CONFIG.device
 
     # Convert to torch tensors if necessary
@@ -79,7 +126,7 @@ def compute_pathwise_pnl_choc(S_t, S_tp1, v_t, v_tp1, base_model, new_params, ba
 
     kappa_t, kappa_tp1, theta_t, theta_tp1, sigma_t, sigma_tp1, rho_t, rho_tp1 = new_params
 
-    # Assure que tous sont sur le bon device
+    # Ensure all params are on the right device
     kappa_t = torch.tensor(kappa_t, device=device, dtype=torch.float32) if not torch.is_tensor(kappa_t) else kappa_t.to(device)
     kappa_tp1 = torch.tensor(kappa_tp1, device=device, dtype=torch.float32) if not torch.is_tensor(kappa_tp1) else kappa_tp1.to(device)
     theta_t = torch.tensor(theta_t, device=device, dtype=torch.float32) if not torch.is_tensor(theta_t) else theta_t.to(device)
@@ -89,9 +136,8 @@ def compute_pathwise_pnl_choc(S_t, S_tp1, v_t, v_tp1, base_model, new_params, ba
     rho_t = torch.tensor(rho_t, device=device, dtype=torch.float32) if not torch.is_tensor(rho_t) else rho_t.to(device)
     rho_tp1 = torch.tensor(rho_tp1, device=device, dtype=torch.float32) if not torch.is_tensor(rho_tp1) else rho_tp1.to(device)
 
-    # Strike (fixe)
+    # Strike (fixed)
     k = base_model.k.item()
-
     # Time settings
     T0 = base_model.T0.item()
     T1 = base_model.T1.item()
@@ -101,60 +147,90 @@ def compute_pathwise_pnl_choc(S_t, S_tp1, v_t, v_tp1, base_model, new_params, ba
     n_paths = S_t.shape[0]
     pnl_list = []
 
-    for i in range(0, n_paths, batch_size):
-        i_end = min(i + batch_size, n_paths)
+    with torch.no_grad():  # Pas besoin de gradients ici
+        for i in range(0, n_paths, batch_size):
+            i_end = min(i + batch_size, n_paths)
 
-        # batch slice
-        S_t_batch = S_t[i:i_end]
-        S_tp1_batch = S_tp1[i:i_end]
-        v_t_batch = v_t[i:i_end]
-        v_tp1_batch = v_tp1[i:i_end]
-        kappa_t_batch = kappa_t[i:i_end]
-        kappa_tp1_batch = kappa_tp1[i:i_end]
-        theta_t_batch = theta_t[i:i_end]
-        theta_tp1_batch = theta_tp1[i:i_end]
-        sigma_t_batch = sigma_t[i:i_end]
-        sigma_tp1_batch = sigma_tp1[i:i_end]
-        rho_t_batch = rho_t[i:i_end]
-        rho_tp1_batch = rho_tp1[i:i_end]
+            # batch slice
+            S_t_batch = S_t[i:i_end]
+            S_tp1_batch = S_tp1[i:i_end]
+            v_t_batch = v_t[i:i_end]
+            v_tp1_batch = v_tp1[i:i_end]
+            kappa_t_batch = kappa_t[i:i_end]
+            kappa_tp1_batch = kappa_tp1[i:i_end]
+            theta_t_batch = theta_t[i:i_end]
+            theta_tp1_batch = theta_tp1[i:i_end]
+            sigma_t_batch = sigma_t[i:i_end]
+            sigma_tp1_batch = sigma_tp1[i:i_end]
+            rho_t_batch = rho_t[i:i_end]
+            rho_tp1_batch = rho_tp1[i:i_end]
 
-        # Modèle à t
-        model_t = ForwardStart(
-            S0=S_t_batch,
-            k=k,
-            T0=T0,
-            T1=T1,
-            T2=T2,
-            r=r,
-            kappa=kappa_t_batch,
-            v0=v_t_batch,
-            theta=theta_t_batch,
-            sigma=sigma_t_batch,
-            rho=rho_t_batch
-        )
-        price_t = model_t.heston_price()
+            # --- Sous-batch loop ---
+            price_t_list = []
+            price_tp1_list = []
 
-        # Modèle à t+1
-        model_tp1 = ForwardStart(
-            S0=S_tp1_batch,
-            k=k,
-            T0=T0,
-            T1=T1 - (1/252),
-            T2=T2 - (1/252),
-            r=r,
-            kappa=kappa_tp1_batch,
-            v0=v_tp1_batch,
-            theta=theta_tp1_batch,
-            sigma=sigma_tp1_batch,
-            rho=rho_tp1_batch
-        )
-        price_tp1 = model_tp1.heston_price()
+            for j in range(0, i_end - i, sub_batch_size):
+                j_end = min(j + sub_batch_size, i_end - i)
 
-        pnl_batch = price_tp1 - price_t
-        pnl_list.append(pnl_batch)
+                # Sub-batch slice
+                S_t_sub = S_t_batch[j:j_end]
+                S_tp1_sub = S_tp1_batch[j:j_end]
+                v_t_sub = v_t_batch[j:j_end]
+                v_tp1_sub = v_tp1_batch[j:j_end]
+                kappa_t_sub = kappa_t_batch[j:j_end]
+                kappa_tp1_sub = kappa_tp1_batch[j:j_end]
+                theta_t_sub = theta_t_batch[j:j_end]
+                theta_tp1_sub = theta_tp1_batch[j:j_end]
+                sigma_t_sub = sigma_t_batch[j:j_end]
+                sigma_tp1_sub = sigma_tp1_batch[j:j_end]
+                rho_t_sub = rho_t_batch[j:j_end]
+                rho_tp1_sub = rho_tp1_batch[j:j_end]
+
+                # Modèle ForwardStart pour t
+                model_t = ForwardStart(
+                    S0=S_t_sub,
+                    k=k,
+                    T0=T0,
+                    T1=T1,
+                    T2=T2,
+                    r=r,
+                    kappa=kappa_t_sub,
+                    v0=v_t_sub,
+                    theta=theta_t_sub,
+                    sigma=sigma_t_sub,
+                    rho=rho_t_sub
+                )
+                price_t_sub = model_t.heston_price()
+                price_t_list.append(price_t_sub)
+
+                # Modèle ForwardStart pour t+1
+                model_tp1 = ForwardStart(
+                    S0=S_tp1_sub,
+                    k=k,
+                    T0=T0,
+                    T1=T1 - (1/252),
+                    T2=T2 - (1/252),
+                    r=r,
+                    kappa=kappa_tp1_sub,
+                    v0=v_tp1_sub,
+                    theta=theta_tp1_sub,
+                    sigma=sigma_tp1_sub,
+                    rho=rho_tp1_sub
+                )
+                price_tp1_sub = model_tp1.heston_price()
+                price_tp1_list.append(price_tp1_sub)
+
+            # Concaténer tous les sous-batchs
+            price_t = torch.cat(price_t_list, dim=0)
+            price_tp1 = torch.cat(price_tp1_list, dim=0)
+
+            # PnL sur ce batch
+            pnl_batch = price_tp1 - price_t
+            pnl_list.append(pnl_batch)
 
     pnl = torch.cat(pnl_list, dim=0)
     return pnl
+
 
 
 

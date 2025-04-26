@@ -138,44 +138,6 @@ class ForwardStart(HestonModel):
         price = self.S0 * (P1 - self.k * torch.exp(-self.r * (self.T2 - self.T1)) * P2)
         return price
 
-    def compute_heston_prices(self, S_paths, v_paths, t):
-        """
-        Version vectorisée de la simulation des prix Heston pour tous les chemins en parallèle sur GPU.
-
-        Args:
-        - S_paths (torch.Tensor): Matrice des prix simulés de taille (n_paths, n_steps).
-        - v_paths (torch.Tensor): Matrice des variances simulées de taille (n_paths, n_steps).
-        - t (int): Indice temporel t pour lequel calculer les prix.
-
-        Returns:
-        - prices_t (torch.Tensor): Tensor des prix Heston au temps t.
-        - prices_t1 (torch.Tensor): Tensor des prix Heston au temps t+1.
-        """
-        n_paths = S_paths.shape[0]
-
-        # Déplacer les données sur GPU pour accélérer le calcul
-        S_t = S_paths[:, t].to(CONFIG.device)
-        v_t = v_paths[:, t].to(CONFIG.device)
-        S_t1 = S_paths[:, t + 1].to(CONFIG.device)
-        v_t1 = v_paths[:, t + 1].to(CONFIG.device)
-
-        # Recréer un objet ForwardStart mais avec batch S_t et v_t
-        forward_start_t = ForwardStart(S0=S_t, k=self.k, T0=self.T0, T1=self.T1, T2=self.T2,
-                                       r=self.r, kappa=self.kappa, v0=v_t, theta=self.theta,
-                                       sigma=self.sigma, rho=self.rho)
-
-        forward_start_t1 = ForwardStart(S0=S_t1, k=self.k, T0=self.T0, T1=self.T1 - 1/252, T2=self.T2 - 1/252,
-                                        r=self.r, kappa=self.kappa, v0=v_t1, theta=self.theta,
-                                        sigma=self.sigma, rho=self.rho)
-
-
-        # Calculer les prix Heston en batch
-        prices_t = forward_start_t.heston_price()
-        prices_t1 = forward_start_t1.heston_price()
-        pnl_total = prices_t1 - prices_t  # PnL = prix_t+1 - prix_t
-
-        return prices_t, prices_t1, pnl_total
-
     def compute_greek(self, greek_name, batch=False):
         greeks = {
             "delta": self.S0,

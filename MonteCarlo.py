@@ -60,18 +60,17 @@ def simulate_heston_qe(
     time_grid = np.linspace(0, T, n_steps + 1)
     n_plot_paths = 10  # Only a few paths for clarity
 
-    # Pastel colors palette
     pastel_colors = [
-        "#AEC6CF",  # Bleu-gris pastel
-        "#FFDAB9",  # Pêche très doux
-        "#E6E6FA",  # Lavande très pâle
-        "#BFD8B8",  # Vert sauge pastel
-        "#F5E1A4",  # Jaune vanille pâle
-        "#F7CAC9",  # Rose poudré
-        "#C8E3D4",  # Vert d'eau léger
-        "#D6CADD",  # Violet gris pastel
-        "#F1D1B5",  # Beige rosé
-        "#D0E1F9",  # Bleu glacier
+        "#D28A76",  # Vieux rose / Terracotta
+        "#9DC3C3",  # Bleu-vert doux
+        "#A1B5D8",  # Bleu lavande
+        "#B5CDA3",  # Vert tendre clair
+        "#C8B8DB",  # Violet léger
+        "#F2C57C",  # Jaune pastel doré
+        "#8AA29E",  # Sauge bleuté
+        "#E2A8B0",  # Rose pastel
+        "#A0C1B8",  # Menthe pastel
+        "#D4A5A5",  # Vieux rose plus froid
     ]
 
     fig, axs = plt.subplots(2, 2, figsize=(12, 6), width_ratios=[2.5, 1.5])
@@ -108,14 +107,45 @@ def simulate_heston_qe(
     axs[1, 1].grid(True, linestyle='--', alpha=0.5)
 
     plt.tight_layout()
+    plt.savefig('NEWPlotFIXED_PARAMS.png', dpi=300, bbox_inches='tight')
     plt.show()
+
+    # Compute statistics
+    from scipy.stats import skew, kurtosis
+
+    # Log-returns stats
+    mean_log_returns = np.mean(flat_log_returns)
+    std_log_returns = np.std(flat_log_returns)
+    skew_log_returns = skew(flat_log_returns)
+    kurt_log_returns = kurtosis(flat_log_returns)
+
+    # v differences stats
+    mean_v_diff = np.mean(v_differences)
+    std_v_diff = np.std(v_differences)
+    skew_v_diff = skew(v_differences)
+    kurt_v_diff = kurtosis(v_differences)
+
+    # Display nicely
+    print("\n--- Statistics ---")
+    print("Log-returns:")
+    print(f"  Mean: {mean_log_returns:.5f}")
+    print(f"  Std Dev: {std_log_returns:.5f}")
+    print(f"  Skewness: {skew_log_returns:.5f}")
+    print(f"  Kurtosis: {kurt_log_returns:.5f}")
+
+    print("\nv(t+1) - v(t):")
+    print(f"  Mean: {mean_v_diff:.5f}")
+    print(f"  Std Dev: {std_v_diff:.5f}")
+    print(f"  Skewness: {skew_v_diff:.5f}")
+    print(f"  Kurtosis: {kurt_v_diff:.5f}")
+
 
     return S, v
 
 def simulate_heston_qe_with_stochastic_params(
     S0=100.0, v0=0.04, r=0.0,
     kappa=1.5, theta=0.04, xi=0.3, rho=-0.7,
-    T=3, dt=1 / 252, n_paths=8000, seed=42,
+    T=3, dt=1 / 252, n_paths=150_000, seed=42,
     shock_std={"kappa": 0.05, "theta": 0.002, "xi": 0.002, "rho": 0.002},
     reversion_speed=0.95, t_time=50
 ):
@@ -196,16 +226,16 @@ def simulate_heston_qe_with_stochastic_params(
     # Pour le plotting
     # Pastel colors palette
     pastel_colors = [
-        "#AEC6CF",  # Bleu-gris pastel
-        "#FFDAB9",  # Pêche très doux
-        "#E6E6FA",  # Lavande très pâle
-        "#BFD8B8",  # Vert sauge pastel
-        "#F5E1A4",  # Jaune vanille pâle
-        "#F7CAC9",  # Rose poudré
-        "#C8E3D4",  # Vert d'eau léger
-        "#D6CADD",  # Violet gris pastel
-        "#F1D1B5",  # Beige rosé
-        "#D0E1F9",  # Bleu glacier
+        "#000000",  # Noir
+        "#4B4B4B",  # Gris anthracite
+        "#7D7D7D",  # Gris moyen
+        "#B2B2B2",  # Gris clair
+        "#D9CBB3",  # Beige sable
+        "#A1887F",  # Marron taupe
+        "#8D6E63",  # Marron doux
+        "#A9746E",  # Terracotta pâle
+        "#C1A192",  # Beige rosé
+        "#A89F91",  # Gris chaud (taupe clair)
     ]
 
     time_grid = np.linspace(0, T, n_steps + 1)

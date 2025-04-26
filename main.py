@@ -16,7 +16,7 @@ S, v = simulate_heston_qe(5667.65,
                    calibrated_params["kappa"],
                    calibrated_params["theta"],
                    calibrated_params["sigma"],
-                   calibrated_params["rho"], n_paths=30_000, seed=42)
+                   calibrated_params["rho"], n_paths=300_000, seed=42)
 
 # S, v, new_params = simulate_heston_qe_with_stochastic_params(5667.65,
 #                    calibrated_params["v0"],
