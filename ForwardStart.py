@@ -176,65 +176,6 @@ class ForwardStart(HestonModel):
 
         return prices_t, prices_t1, pnl_total
 
-    def compute_explained_pnl(self, S_paths, v_paths, t, dt, dt_path):
-        """
-        Calcule le PnL expliqué à l'instant t en batch pour chaque chemin.
-
-        Args:
-        - S_paths (torch.Tensor): Matrice des prix simulés (n_paths, n_steps).
-        - v_paths (torch.Tensor): Matrice des variances simulées (n_paths, n_steps).
-        - t (int): Indice temporel pour lequel calculer le PnL expliqué.
-        - dt (float): Pas de temps écoulé entre t et t+1.
-
-        Returns:
-        - explained_pnl (torch.Tensor): Tensor du PnL expliqué pour chaque chemin.
-        """
-        # Déplacer les données sur GPU
-        S_t = S_paths[:, t].to(CONFIG.device)
-        S_t1 = S_paths[:, t + 1].to(CONFIG.device)
-        v_t = v_paths[:, t].to(CONFIG.device)
-        v_t1 = v_paths[:, t + 1].to(CONFIG.device)
-        dt_t = dt_path[:, t].to(CONFIG.device)
-        T0_t = self.T0.expand_as(S_t).to(CONFIG.device)
-
-        print("min de v_t", torch.min(v_paths))
-        print("max de v_t", torch.max(v_paths))
-        print("min de S_t", torch.min(S_paths))
-        print("max de S_t", torch.max(S_paths))
-
-        # Création d'instances batch ForwardStart pour calculer les prix et grecs
-        forward_start_t = ForwardStart(S0=S_t, k=self.k, T0=T0_t, T1=self.T1, T2=self.T2,
-                                       r=self.r, kappa=self.kappa, v0=v_t, theta=self.theta,
-                                       sigma=self.sigma, rho=self.rho)
-
-        forward_start_t_special = ForwardStart(S0=S_t, k=self.k, T0=T0_t, T1=self.T1, T2=self.T2,
-                                       r=self.r, kappa=self.kappa, v0=self.v0, theta=self.theta,
-                                       sigma=self.sigma, rho=self.rho)
-
-        # Calculer le prix de l'option à t
-        price_t = forward_start_t.heston_price()
-
-        # Calcul des Grecs
-        delta = forward_start_t.compute_greek("delta", batch=True)
-        vega = forward_start_t.compute_greek("vega", batch=True)
-        vanna = forward_start_t.compute_greek("vanna", batch=True)
-        volga = forward_start_t.compute_greek("volga", batch=True)
-        theta = forward_start_t.compute_greek("theta", batch=True)
-
-        # Calcul des variations des variables
-        dS = S_t1 - S_t
-        dv = v_t1 - v_t
-        dT = 1/252
-        print("min vega", torch.min(vega))
-        print("max vega", torch.max(vega))
-        print("min vega*dv", torch.min(vega*dv))
-        print("max vega*dv", torch.max(vega*dv))
-
-        # explained_pnl = delta * dS + vega * dv + theta * dT + 0.5 * vanna * dS * dv + 0.5 * vomma * dv**2
-        explained_pnl = delta * dS + theta * dT + vega * dv
-
-        return explained_pnl
-
     def compute_greek(self, greek_name, batch=False):
         greeks = {
             "delta": self.S0,

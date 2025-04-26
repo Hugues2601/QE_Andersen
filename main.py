@@ -26,9 +26,13 @@ S, v = simulate_heston_qe(5667.65,
 #                    calibrated_params["sigma"],
 #                    calibrated_params["rho"])
 
+print("simul done")
+
 plot_terminal_distributions(S, v)
 
 St, St1, vt, vt1 = extract_snapshots(S, v, t=50)
+
+print("snapshot done")
 
 forward_model = ForwardStart(S0=5667.65,
                              k=1,
@@ -41,6 +45,10 @@ forward_model = ForwardStart(S0=5667.65,
                              theta=calibrated_params["theta"],
                              sigma=calibrated_params["sigma"],
                              rho=calibrated_params["rho"])
+
+
+
+print("forward model done")
 
 pnl_tot = compute_pathwise_pnl(St, St1, vt, vt1, forward_model)
 

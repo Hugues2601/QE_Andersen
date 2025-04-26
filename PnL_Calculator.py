@@ -68,24 +68,7 @@ def compute_pathwise_pnl(S_t, S_tp1, v_t, v_tp1, base_model):
     pnl = price_tp1 - price_t
     return pnl
 
-def compute_pathwise_pnl_choc(S_t, S_tp1, v_t, v_tp1, base_model, new_params):
-    """
-    Calcule le PnL pathwise entre t et t+1 en utilisant les paramètres simulés et le modèle ForwardStart.
-
-    Paramètres
-    ----------
-    S_t, S_tp1 : ndarray or tensor
-        Valeurs de S_t et S_{t+1} pour chaque chemin.
-    v_t, v_tp1 : ndarray or tensor
-        Valeurs de v_t et v_{t+1} pour chaque chemin.
-    base_model : ForwardStart
-        Modèle ForwardStart instancié avec les bons paramètres fixes (T0, T1, T2, etc.)
-
-    Retourne
-    --------
-    pnl : torch.Tensor
-        Différence de prix entre t+1 et t pour chaque chemin (shape: n_paths,)
-    """
+def compute_pathwise_pnl_choc(S_t, S_tp1, v_t, v_tp1, base_model, new_params, batch_size=1000):
     device = CONFIG.device
 
     # Convert to torch tensors if necessary
@@ -94,45 +77,85 @@ def compute_pathwise_pnl_choc(S_t, S_tp1, v_t, v_tp1, base_model, new_params):
     v_t = torch.tensor(v_t, device=device, dtype=torch.float32) if not torch.is_tensor(v_t) else v_t.to(device)
     v_tp1 = torch.tensor(v_tp1, device=device, dtype=torch.float32) if not torch.is_tensor(v_tp1) else v_tp1.to(device)
 
-    # Tenseur du strike
+    kappa_t, kappa_tp1, theta_t, theta_tp1, sigma_t, sigma_tp1, rho_t, rho_tp1 = new_params
+
+    # Assure que tous sont sur le bon device
+    kappa_t = torch.tensor(kappa_t, device=device, dtype=torch.float32) if not torch.is_tensor(kappa_t) else kappa_t.to(device)
+    kappa_tp1 = torch.tensor(kappa_tp1, device=device, dtype=torch.float32) if not torch.is_tensor(kappa_tp1) else kappa_tp1.to(device)
+    theta_t = torch.tensor(theta_t, device=device, dtype=torch.float32) if not torch.is_tensor(theta_t) else theta_t.to(device)
+    theta_tp1 = torch.tensor(theta_tp1, device=device, dtype=torch.float32) if not torch.is_tensor(theta_tp1) else theta_tp1.to(device)
+    sigma_t = torch.tensor(sigma_t, device=device, dtype=torch.float32) if not torch.is_tensor(sigma_t) else sigma_t.to(device)
+    sigma_tp1 = torch.tensor(sigma_tp1, device=device, dtype=torch.float32) if not torch.is_tensor(sigma_tp1) else sigma_tp1.to(device)
+    rho_t = torch.tensor(rho_t, device=device, dtype=torch.float32) if not torch.is_tensor(rho_t) else rho_t.to(device)
+    rho_tp1 = torch.tensor(rho_tp1, device=device, dtype=torch.float32) if not torch.is_tensor(rho_tp1) else rho_tp1.to(device)
+
+    # Strike (fixe)
     k = base_model.k.item()
 
-    # Clone du modèle à t
-    model_t = ForwardStart(
-        S0=S_t,
-        k=k,
-        T0=base_model.T0.item(),
-        T1=base_model.T1.item(),
-        T2=base_model.T2.item(),
-        r=base_model.r.item(),
-        kappa=new_params[0],
-        v0=v_t,
-        theta=new_params[2],
-        sigma=new_params[4],
-        rho=new_params[6]
-    )
+    # Time settings
+    T0 = base_model.T0.item()
+    T1 = base_model.T1.item()
+    T2 = base_model.T2.item()
+    r = base_model.r.item()
 
-    # Clone du modèle à t+1
-    model_tp1 = ForwardStart(
-        S0=S_tp1,
-        k=k,
-        T0=base_model.T0.item(),
-        T1=base_model.T1.item()-(1/252),
-        T2=base_model.T2.item()-(1/252),
-        r=base_model.r.item(),
-        kappa=new_params[1],
-        v0=v_tp1,
-        theta=new_params[3],
-        sigma=new_params[5],
-        rho=new_params[7]
-    )
+    n_paths = S_t.shape[0]
+    pnl_list = []
 
-    # Prix des options à t et t+1 (shape: n_paths,)
-    price_t = model_t.heston_price()
-    price_tp1 = model_tp1.heston_price()
+    for i in range(0, n_paths, batch_size):
+        i_end = min(i + batch_size, n_paths)
 
-    pnl = price_tp1 - price_t
+        # batch slice
+        S_t_batch = S_t[i:i_end]
+        S_tp1_batch = S_tp1[i:i_end]
+        v_t_batch = v_t[i:i_end]
+        v_tp1_batch = v_tp1[i:i_end]
+        kappa_t_batch = kappa_t[i:i_end]
+        kappa_tp1_batch = kappa_tp1[i:i_end]
+        theta_t_batch = theta_t[i:i_end]
+        theta_tp1_batch = theta_tp1[i:i_end]
+        sigma_t_batch = sigma_t[i:i_end]
+        sigma_tp1_batch = sigma_tp1[i:i_end]
+        rho_t_batch = rho_t[i:i_end]
+        rho_tp1_batch = rho_tp1[i:i_end]
+
+        # Modèle à t
+        model_t = ForwardStart(
+            S0=S_t_batch,
+            k=k,
+            T0=T0,
+            T1=T1,
+            T2=T2,
+            r=r,
+            kappa=kappa_t_batch,
+            v0=v_t_batch,
+            theta=theta_t_batch,
+            sigma=sigma_t_batch,
+            rho=rho_t_batch
+        )
+        price_t = model_t.heston_price()
+
+        # Modèle à t+1
+        model_tp1 = ForwardStart(
+            S0=S_tp1_batch,
+            k=k,
+            T0=T0,
+            T1=T1 - (1/252),
+            T2=T2 - (1/252),
+            r=r,
+            kappa=kappa_tp1_batch,
+            v0=v_tp1_batch,
+            theta=theta_tp1_batch,
+            sigma=sigma_tp1_batch,
+            rho=rho_tp1_batch
+        )
+        price_tp1 = model_tp1.heston_price()
+
+        pnl_batch = price_tp1 - price_t
+        pnl_list.append(pnl_batch)
+
+    pnl = torch.cat(pnl_list, dim=0)
     return pnl
+
 
 
 import numpy as np
