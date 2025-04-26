@@ -226,16 +226,16 @@ def simulate_heston_qe_with_stochastic_params(
     # Pour le plotting
     # Pastel colors palette
     pastel_colors = [
-        "#000000",  # Noir
-        "#4B4B4B",  # Gris anthracite
-        "#7D7D7D",  # Gris moyen
-        "#B2B2B2",  # Gris clair
-        "#D9CBB3",  # Beige sable
-        "#A1887F",  # Marron taupe
-        "#8D6E63",  # Marron doux
-        "#A9746E",  # Terracotta pâle
-        "#C1A192",  # Beige rosé
-        "#A89F91",  # Gris chaud (taupe clair)
+        "#D28A76",  # Vieux rose / Terracotta
+        "#9DC3C3",  # Bleu-vert doux
+        "#A1B5D8",  # Bleu lavande
+        "#B5CDA3",  # Vert tendre clair
+        "#C8B8DB",  # Violet léger
+        "#F2C57C",  # Jaune pastel doré
+        "#8AA29E",  # Sauge bleuté
+        "#E2A8B0",  # Rose pastel
+        "#A0C1B8",  # Menthe pastel
+        "#D4A5A5",  # Vieux rose plus froid
     ]
 
     time_grid = np.linspace(0, T, n_steps + 1)

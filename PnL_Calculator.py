@@ -296,7 +296,7 @@ def analyze_pnl_numpy(pnl_tot, pnl_explained, bins=100):
     axs[0].set_xlabel("Unexplained PnL")
     axs[0].set_ylabel("Frequency")
     axs[0].grid(True, linestyle='--', alpha=0.3)
-    axs[0].set_xlim(-1, 1)  # 💡 Limite l'axe horizontal entre -1 et 1
+    axs[0].set_xlim(-30, 30)  # 💡 Limite l'axe horizontal entre -1 et 1
 
     # Scatter plot of unexplained PnL per path
     axs[1].scatter(np.arange(len(pnl_unexplained)), pnl_unexplained, alpha=0.6, color='black', s=10)
