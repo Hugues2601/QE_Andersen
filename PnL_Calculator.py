@@ -211,46 +211,6 @@ def analyze_pnl_numpy(pnl_tot, pnl_explained, bins=100):
     plt.grid(True)
     plt.show()
 
-    # Q-Q Plot
-    plt.figure(figsize=(6, 6))
-    stats.probplot(pnl_unexplained, dist="norm", plot=plt)
-    plt.title("Q-Q Plot du PnL inexpliqué (vs. loi normale)")
-    plt.grid(True)
-    plt.show()
-
-    # PnL cumulé
-    plt.figure(figsize=(10, 5))
-    plt.plot(np.cumsum(pnl_tot), label="PnL total")
-    plt.plot(np.cumsum(pnl_explained), label="PnL expliqué")
-    plt.plot(np.cumsum(pnl_unexplained), label="PnL inexpliqué")
-    plt.title("PnL cumulé par chemin")
-    plt.xlabel("Chemins")
-    plt.ylabel("PnL cumulé")
-    plt.legend()
-    plt.grid(True)
-    plt.show()
-
-    plt.figure(figsize=(12, 5))
-    plt.plot(pnl_tot, label="PnL total", color="blue", linewidth=1)
-    plt.plot(pnl_explained, label="PnL expliqué", color="orange", alpha=0.4, linewidth=1)
-    plt.plot(pnl_unexplained, label="PnL inexpliqué", color="green", linewidth=1)
-    plt.title("PnL par chemin (non cumulé)")
-    plt.xlabel("Chemin")
-    plt.ylabel("PnL")
-    plt.legend()
-    plt.grid(True)
-    plt.show()
-
-    plt.figure(figsize=(12, 5))
-    plt.scatter(np.arange(len(pnl_unexplained)), pnl_unexplained, alpha=0.6, color='black', s=10)
-    plt.axhline(0, color='gray', linestyle='dashed', linewidth=1)
-    plt.title("")
-    plt.xlabel("Path")
-    plt.ylabel("Unexplained PnL")
-    plt.grid(True, linestyle='--', alpha=0.3)
-    plt.tight_layout()
-    plt.show()
-
     # Create figure with two subplots
     fig, axs = plt.subplots(1, 2, figsize=(14, 5), sharex=False)
 

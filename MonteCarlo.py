@@ -247,6 +247,47 @@ def simulate_heston_qe_with_stochastic_params(
     plt.tight_layout()
     plt.show()
 
+    # --- New figure for stochastic parameters ---
+    fig, axs = plt.subplots(2, 2, figsize=(12, 6))
+
+    kappa_path = np.array(kappa_path)  # (n_steps, n_paths)
+    theta_path = np.array(theta_path)
+    xi_path = np.array(xi_path)
+    rho_path = np.array(rho_path)
+
+    # --- Plot Kappa ---
+    for i in range(n_plot_paths):
+        axs[0, 0].plot(time_grid[:-1], kappa_path[:, i], color=pastel_colors[i % len(pastel_colors)], alpha=0.9)
+    axs[0, 0].set_title('Paths of $\\kappa_t$', fontsize=14)
+    axs[0, 0].set_ylabel('$\\kappa_t$', fontsize=12)
+    axs[0, 0].grid(True, linestyle='--', alpha=0.5)
+
+    # --- Plot Theta ---
+    for i in range(n_plot_paths):
+        axs[0, 1].plot(time_grid[:-1], theta_path[:, i], color=pastel_colors[i % len(pastel_colors)], alpha=0.9)
+    axs[0, 1].set_title('Paths of $\\theta_t$', fontsize=14)
+    axs[0, 1].set_ylabel('$\\theta_t$', fontsize=12)
+    axs[0, 1].grid(True, linestyle='--', alpha=0.5)
+
+    # --- Plot Xi ---
+    for i in range(n_plot_paths):
+        axs[1, 0].plot(time_grid[:-1], xi_path[:, i], color=pastel_colors[i % len(pastel_colors)], alpha=0.9)
+    axs[1, 0].set_title('Paths of $\\xi_t$', fontsize=14)
+    axs[1, 0].set_ylabel('$\\xi_t$', fontsize=12)
+    axs[1, 0].set_xlabel('Time (years)', fontsize=12)
+    axs[1, 0].grid(True, linestyle='--', alpha=0.5)
+
+    # --- Plot Rho ---
+    for i in range(n_plot_paths):
+        axs[1, 1].plot(time_grid[:-1], rho_path[:, i], color=pastel_colors[i % len(pastel_colors)], alpha=0.9)
+    axs[1, 1].set_title('Paths of $\\rho_t$', fontsize=14)
+    axs[1, 1].set_ylabel('$\\rho_t$', fontsize=12)
+    axs[1, 1].set_xlabel('Time (years)', fontsize=12)
+    axs[1, 1].grid(True, linestyle='--', alpha=0.5)
+
+    plt.tight_layout()
+    plt.show()
+
     # Prints pour debug sur les chemins (exemple sur le chemin 0)
     print(f"kappa[0][{t_time}] = {kappa_path[t_time][0]:.6f}, kappa[0][{t_time+1}] = {kappa_path[t_time+1][0]:.6f}")
     print(f"theta[0][{t_time}] = {theta_path[t_time][0]:.6f}, theta[0][{t_time+1}] = {theta_path[t_time+1][0]:.6f}")
