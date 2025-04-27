@@ -19,12 +19,12 @@ calibrated_params = {'kappa': 2.41300630569458, 'v0': 0.029727613553404808, 'the
 #                    calibrated_params["rho"], n_paths=300_000, seed=42)
 
 S, v, new_params = simulate_heston_qe_with_stochastic_params(5667.65,
-                   calibrated_params["v0"],
-                   0.03927,
-                   calibrated_params["kappa"],
-                   calibrated_params["theta"],
-                   calibrated_params["sigma"],
-                   calibrated_params["rho"], n_paths=300_000, seed=42)
+                   v0=calibrated_params["v0"],
+                   r=0.03927,
+                   kappa=calibrated_params["kappa"],
+                   theta=calibrated_params["theta"],
+                   xi=calibrated_params["sigma"],
+                   rho=calibrated_params["rho"], n_paths=100000, seed=42, nb_of_plots=1)
 
 print("simul done")
 

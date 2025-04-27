@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import scipy
 from matplotlib import gridspec
 
 
@@ -61,16 +62,16 @@ def simulate_heston_qe(
     n_plot_paths = 10  # Only a few paths for clarity
 
     pastel_colors = [
-        "#D28A76",  # Vieux rose / Terracotta
-        "#9DC3C3",  # Bleu-vert doux
-        "#A1B5D8",  # Bleu lavande
-        "#B5CDA3",  # Vert tendre clair
-        "#C8B8DB",  # Violet léger
-        "#F2C57C",  # Jaune pastel doré
-        "#8AA29E",  # Sauge bleuté
-        "#E2A8B0",  # Rose pastel
-        "#A0C1B8",  # Menthe pastel
-        "#D4A5A5",  # Vieux rose plus froid
+        "#1f77b4",  # Bleu franc
+        "#ff7f0e",  # Orange vif
+        "#2ca02c",  # Vert franc
+        "#d62728",  # Rouge vif
+        "#9467bd",  # Violet saturé
+        "#8c564b",  # Marron intense
+        "#e377c2",  # Rose punchy
+        "#7f7f7f",  # Gris foncé neutre
+        "#bcbd22",  # Vert olive saturé
+        "#17becf",  # Bleu turquoise éclatant
     ]
 
     fig, axs = plt.subplots(2, 2, figsize=(12, 6), width_ratios=[2.5, 1.5])
@@ -85,11 +86,11 @@ def simulate_heston_qe(
     # --- Distribution of log-returns ---
     log_returns = np.log(S[1:] / S[:-1])
     flat_log_returns = log_returns.flatten()
-    axs[0, 1].hist(flat_log_returns, bins=100, color='black', edgecolor='black')
+    axs[0, 1].hist(flat_log_returns, bins=300, color='black', edgecolor='black')
     axs[0, 1].set_title('Distribution of log-returns $\\log(S_{t+1}/S_t)$', fontsize=14)
-    axs[0, 1].set_yticks([])
     axs[0, 1].grid(True, linestyle='--', alpha=0.5)
-
+    axs[0, 1].set_xlim(-0.05, 0.05)
+    axs[0, 1].set_ylabel('Frequency', fontsize=12)
 
     # --- Simulated Paths of v_t ---
     for i in range(n_plot_paths):
@@ -101,10 +102,11 @@ def simulate_heston_qe(
 
     # --- Distribution of v_T ---
     v_differences = (v[1:] - v[:-1]).flatten()
-    axs[1, 1].hist(v_differences, bins=100, color='black', edgecolor='black')
+    axs[1, 1].hist(v_differences, bins=300, color='black', edgecolor='black')
     axs[1, 1].set_title('Distribution of $v_{t+1} - v_t$', fontsize=14)
-    axs[1, 1].set_yticks([])
     axs[1, 1].grid(True, linestyle='--', alpha=0.5)
+    axs[1, 1].set_xlim(-0.02, 0.02)
+    axs[1, 1].set_ylabel('Frequency', fontsize=12)
 
     plt.tight_layout()
     plt.savefig('NEWPlotFIXED_PARAMS.png', dpi=300, bbox_inches='tight')
@@ -145,9 +147,9 @@ def simulate_heston_qe(
 def simulate_heston_qe_with_stochastic_params(
     S0=100.0, v0=0.04, r=0.0,
     kappa=1.5, theta=0.04, xi=0.3, rho=-0.7,
-    T=3, dt=1 / 252, n_paths=150_000, seed=42,
+    T=3, dt=1 / 252, n_paths=10_000, seed=42,
     shock_std={"kappa": 0.05, "theta": 0.002, "xi": 0.002, "rho": 0.002},
-    reversion_speed=0.95, t_time=50
+    reversion_speed=0.95, t_time=50, nb_of_plots=5
 ):
     import numpy as np
     import matplotlib.pyplot as plt
@@ -226,20 +228,20 @@ def simulate_heston_qe_with_stochastic_params(
     # Pour le plotting
     # Pastel colors palette
     pastel_colors = [
-        "#D28A76",  # Vieux rose / Terracotta
-        "#9DC3C3",  # Bleu-vert doux
-        "#A1B5D8",  # Bleu lavande
-        "#B5CDA3",  # Vert tendre clair
-        "#C8B8DB",  # Violet léger
-        "#F2C57C",  # Jaune pastel doré
-        "#8AA29E",  # Sauge bleuté
-        "#E2A8B0",  # Rose pastel
-        "#A0C1B8",  # Menthe pastel
-        "#D4A5A5",  # Vieux rose plus froid
+        "#1f77b4",  # Bleu franc
+        "#ff7f0e",  # Orange vif
+        "#2ca02c",  # Vert franc
+        "#d62728",  # Rouge vif
+        "#9467bd",  # Violet saturé
+        "#8c564b",  # Marron intense
+        "#e377c2",  # Rose punchy
+        "#7f7f7f",  # Gris foncé neutre
+        "#bcbd22",  # Vert olive saturé
+        "#17becf",  # Bleu turquoise éclatant
     ]
 
     time_grid = np.linspace(0, T, n_steps + 1)
-    n_plot_paths = 10  # Only a few paths for clarity
+    n_plot_paths = nb_of_plots # Only a few paths for clarity
 
     fig, axs = plt.subplots(2, 2, figsize=(12, 6), width_ratios=[2.5, 1.5])
 
@@ -253,10 +255,12 @@ def simulate_heston_qe_with_stochastic_params(
     # --- Distribution of log-returns ---
     log_returns = np.log(S[1:] / S[:-1])
     flat_log_returns = log_returns.flatten()
-    axs[0, 1].hist(flat_log_returns, bins=100, color='black', edgecolor='black')
+    print("len de log_returns", len(flat_log_returns))
+    axs[0, 1].hist(flat_log_returns, bins=300, color='black', edgecolor='black')
     axs[0, 1].set_title('Distribution of log-returns $\\log(S_{t+1}/S_t)$', fontsize=14)
-    axs[0, 1].set_yticks([])
+    axs[0, 1].set_ylabel('Frequency', fontsize=12)
     axs[0, 1].grid(True, linestyle='--', alpha=0.5)
+    axs[0, 1].set_xlim(-0.05, 0.05)
 
 
     # --- Simulated Paths of v_t ---
@@ -269,13 +273,30 @@ def simulate_heston_qe_with_stochastic_params(
 
     # --- Distribution of v_T ---
     v_differences = (v[1:] - v[:-1]).flatten()
-    axs[1, 1].hist(v_differences, bins=100, color='black', edgecolor='black')
+    axs[1, 1].hist(v_differences, bins=300, color='black', edgecolor='black')
     axs[1, 1].set_title('Distribution of $v_{t+1} - v_t$', fontsize=14)
-    axs[1, 1].set_yticks([])
+    axs[0, 1].set_ylabel('Frequency', fontsize=12)
     axs[1, 1].grid(True, linestyle='--', alpha=0.5)
+    axs[1, 1].set_xlim(-0.02, 0.02)
 
     plt.tight_layout()
+    plt.savefig("SandVPATHNEWSHOCKED", dpi=300, bbox_inches="tight")
     plt.show()
+
+    # --- Display some statistics ---
+
+    print("=== Statistics on log-returns ===")
+    print(f"Mean: {flat_log_returns.mean():.6f}")
+    print(f"Std: {flat_log_returns.std():.6f}")
+    print(f"Skewness: {scipy.stats.skew(flat_log_returns):.6f}")
+    print(f"Kurtosis: {scipy.stats.kurtosis(flat_log_returns):.6f}")
+    print()
+
+    print("=== Statistics on v_{t+1} - v_t ===")
+    print(f"Mean: {v_differences.mean():.6f}")
+    print(f"Std: {v_differences.std():.6f}")
+    print(f"Skewness: {scipy.stats.skew(v_differences):.6f}")
+    print(f"Kurtosis: {scipy.stats.kurtosis(v_differences):.6f}")
 
     # --- New figure for stochastic parameters ---
     fig, axs = plt.subplots(2, 2, figsize=(12, 6))
@@ -285,6 +306,7 @@ def simulate_heston_qe_with_stochastic_params(
     xi_path = np.array(xi_path)
     rho_path = np.array(rho_path)
 
+    print(S)
     # --- Plot Kappa ---
     for i in range(n_plot_paths):
         axs[0, 0].plot(time_grid[:-1], kappa_path[:, i], color=pastel_colors[i % len(pastel_colors)], alpha=0.9)
@@ -302,8 +324,8 @@ def simulate_heston_qe_with_stochastic_params(
     # --- Plot Xi ---
     for i in range(n_plot_paths):
         axs[1, 0].plot(time_grid[:-1], xi_path[:, i], color=pastel_colors[i % len(pastel_colors)], alpha=0.9)
-    axs[1, 0].set_title('Paths of $\\xi_t$', fontsize=14)
-    axs[1, 0].set_ylabel('$\\xi_t$', fontsize=12)
+    axs[1, 0].set_title('Paths of $\\sigma_t$', fontsize=14)
+    axs[1, 0].set_ylabel('$\\sigma_t$', fontsize=12)
     axs[1, 0].set_xlabel('Time (years)', fontsize=12)
     axs[1, 0].grid(True, linestyle='--', alpha=0.5)
 
@@ -316,6 +338,7 @@ def simulate_heston_qe_with_stochastic_params(
     axs[1, 1].grid(True, linestyle='--', alpha=0.5)
 
     plt.tight_layout()
+    plt.savefig("NEWParamsPaths.png", dpi=300, bbox_inches="tight")
     plt.show()
 
     # Prints pour debug sur les chemins (exemple sur le chemin 0)
