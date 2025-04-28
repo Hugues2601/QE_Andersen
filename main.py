@@ -24,13 +24,13 @@ S, v, new_params = simulate_heston_qe_with_stochastic_params(5667.65,
                    kappa=calibrated_params["kappa"],
                    theta=calibrated_params["theta"],
                    xi=calibrated_params["sigma"],
-                   rho=calibrated_params["rho"], n_paths=100000, seed=42, nb_of_plots=1)
+                   rho=calibrated_params["rho"], n_paths=30000, seed=42, nb_of_plots=1, t_time=60)
 
 print("simul done")
 
 plot_terminal_distributions(S, v)
 
-St, St1, vt, vt1 = extract_snapshots(S, v, t=50)
+St, St1, vt, vt1 = extract_snapshots(S, v, t=60)
 
 print("snapshot done")
 
@@ -56,11 +56,11 @@ pnl_tot = compute_pathwise_pnl_choc(St, St1, vt, vt1, forward_model, new_params)
 
 pnl_tot = pnl_tot.detach().cpu().numpy()
 
-delta = forward_model.compute_greek("delta")
-vega = forward_model.compute_greek("vega")
-theta = forward_model.compute_greek("theta")
-vanna = forward_model.compute_greek("vanna")
-volga = forward_model.compute_greek("volga")
+delta = 0.1153
+vega = 67.8623
+theta = -12.476408
+vanna = 0.081020
+volga = 881.6949
 
 delta_contribution = delta * (St1-St)
 vega_contribution = vega * (np.sqrt(vt1) - np.sqrt(vt))

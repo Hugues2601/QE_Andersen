@@ -11,6 +11,13 @@ from MonteCarlo import simulate_heston_qe, plot_terminal_distributions, extract_
     simulate_heston_qe_with_stochastic_params_2
 from PnL_Calculator import compute_pathwise_pnl, analyze_pnl_numpy, compute_pathwise_pnl_choc
 
+from NN import GreekCorrectionMLP  # ou directement ta classe
+
+model = GreekCorrectionMLP()
+model.load_state_dict(torch.load("greek_correction_model.pth"))
+model.eval()
+print("✅ Modèle GreekCorrection chargé pour la simulation !")
+
 
 calibrated_params = {'kappa': 2.41300630569458, 'v0': 0.029727613553404808, 'theta': 0.04138144478201866,
                      'sigma': 0.3084869682788849, 'rho': -0.8905978202819824,}
@@ -33,6 +40,40 @@ def simulate_forward_pnl_life_dual_with_shocks(S, v, forward_model, T1, T2,
             theta = forward_model.compute_greek("theta")
             vanna = forward_model.compute_greek("vanna")
             volga = forward_model.compute_greek("volga")
+
+            # Tu prends les premières valeurs de ta simulation
+            St0 = S[0]  # S à t=0
+            St1_0 = S[1]  # S à t=1
+            vt0 = v[0]  # v à t=0
+            vt1_0 = v[1]  # v à t=1
+
+            # Création du feature vector pour t=0
+            feature_vector = torch.tensor([
+                float(St0),
+                float(St1_0),
+                float(vt0),
+                float(vt1_0),
+                float(delta),
+                float(vega),
+                float(theta),
+                float(vanna),
+                float(volga)
+            ], dtype=torch.float32).unsqueeze(0)  # [1, 9]
+
+            # Passage dans le modèle
+            with torch.no_grad():
+                coeffs = model(feature_vector)
+
+            a, b, c, d, e = coeffs[0]
+
+            # Appliquer la correction
+            delta = a.item() * delta
+            vega = b.item() * vega
+            theta = c.item() * theta
+            vanna = d.item() * vanna
+            volga = e.item() * volga
+
+            print("✅ Greeks fixes corrigés via MLP !")
 
         for t in range(n_steps):
             St, St1 = S[t], S[t + 1]
@@ -65,6 +106,32 @@ def simulate_forward_pnl_life_dual_with_shocks(S, v, forward_model, T1, T2,
                 theta = model_t.compute_greek("theta")
                 vanna = model_t.compute_greek("vanna")
                 volga = model_t.compute_greek("volga")
+
+                # Construire les features pour MLP
+                feature_vector = torch.tensor([
+                    float(St),
+                    float(St1),
+                    float(vt),
+                    float(vt1),
+                    float(delta),
+                    float(vega),
+                    float(theta),
+                    float(vanna),
+                    float(volga)
+                ], dtype=torch.float32).unsqueeze(0)  # [1, 9]
+                # [1, 9] batch size = 1
+
+                # Prédire a,b,c,d,e
+                with torch.no_grad():
+                    coeffs = model(feature_vector)
+
+                a, b, c, d, e = coeffs[0]  # on récupère les 5 scalaires
+
+                delta = a.item() * delta
+                vega = b.item() * vega
+                theta = c.item() * theta
+                vanna = d.item() * vanna
+                volga = e.item() * volga
 
             delta_c = delta * (St1 - St)
             vega_c = vega * (np.sqrt(vt1) - np.sqrt(vt))

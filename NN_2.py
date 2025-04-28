@@ -233,8 +233,7 @@ if __name__ == "__main__":
 
     rmse = np.sqrt(mean_squared_error(all_real_pnl, all_pred_pnl))
     print(f"✅ Test terminé : RMSE sur t=55 ➔ t=56 = {rmse:.6f}")
-    torch.save(model.state_dict(), "greek_correction_model.pth")
-    print("✅ Modèle sauvegardé sous 'greek_correction_model.pth'")
+
 
     analyze_pnl_numpy(all_real_pnl, all_pred_pnl)
 

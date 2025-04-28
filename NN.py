@@ -17,25 +17,8 @@ torch.cuda.manual_seed_all(SEED)
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 
-class GreekCorrectionDataset(Dataset):
-    """
-    Dataset pour entraîner un MLP à corriger les contributions des grecs.
-
-    Entrée :
-        - S_t, S_t+1, v_t, v_t+1
-        - delta, vega, theta, vanna, volga
-    Sortie :
-        - pnl_tot (à approcher par les corrections)
-    """
-
+class GreekCorrectionDatasetV2(Dataset):
     def __init__(self, St, St1, vt, vt1, delta, vega, theta, vanna, volga, pnl_tot):
-        """
-        Args:
-            St, St1, vt, vt1 : np.ndarray or torch.Tensor
-            delta, vega, theta, vanna, volga : floats
-            pnl_tot : np.ndarray or torch.Tensor
-        """
-        # Ensure tensors
         self.St = torch.tensor(St, dtype=torch.float32) if not torch.is_tensor(St) else St
         self.St1 = torch.tensor(St1, dtype=torch.float32) if not torch.is_tensor(St1) else St1
         self.vt = torch.tensor(vt, dtype=torch.float32) if not torch.is_tensor(vt) else vt
@@ -53,12 +36,18 @@ class GreekCorrectionDataset(Dataset):
         return self.St.shape[0]
 
     def __getitem__(self, idx):
-        # Input = 9 features
+        log_return = torch.log(self.St1[idx] / self.St[idx] + 1e-8)  # éviter division par zéro
+        delta_v = self.vt1[idx] - self.vt[idx]
+        interaction = self.St[idx] * self.vt[idx]
+
         features = torch.stack([
             self.St[idx],
             self.St1[idx],
             self.vt[idx],
             self.vt1[idx],
+            log_return,
+            delta_v,
+            interaction,
             self.delta,
             self.vega,
             self.theta,
@@ -68,22 +57,26 @@ class GreekCorrectionDataset(Dataset):
         target = self.pnl_tot[idx]
         return features, target
 
+
 import torch
 import torch.nn as nn
 
-class GreekCorrectionMLP(nn.Module):
+class GreekCorrectionMLPV2(nn.Module):
     def __init__(self):
-        super(GreekCorrectionMLP, self).__init__()
+        super(GreekCorrectionMLPV2, self).__init__()
         self.model = nn.Sequential(
-            nn.Linear(9, 64),
+            nn.Linear(12, 128),
+            nn.ReLU(),
+            nn.Linear(128, 64),
             nn.ReLU(),
             nn.Linear(64, 32),
             nn.ReLU(),
-            nn.Linear(32, 5)  # Output a, b, c, d, e
+            nn.Linear(32, 5)
         )
 
     def forward(self, x):
         return self.model(x)
+
 
 def compute_pnl_explained(coeffs, features):
     """
@@ -184,13 +177,13 @@ if __name__ == "__main__":
     pnl_tot = pnl_tot.detach().cpu().numpy()
 
     # --- Ensuite tu construis comme avant ---
-    dataset = GreekCorrectionDataset(St, St1, vt, vt1, delta, vega, theta, vanna, volga, pnl_tot)
+    dataset = GreekCorrectionDatasetV2(St, St1, vt, vt1, delta, vega, theta, vanna, volga, pnl_tot)
     dataloader = DataLoader(dataset, batch_size=512, shuffle=True)
 
-    model = GreekCorrectionMLP()
+    model = GreekCorrectionMLPV2()
 
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
-    n_epochs = 40
+    n_epochs = 94
 
     for epoch in range(n_epochs):
         model.train()
@@ -209,7 +202,8 @@ if __name__ == "__main__":
 
     print("✅ Training terminé avec TES DONNÉES RÉELLES !")
 
-
+    torch.save(model.state_dict(), "greek_correction_model.pth")
+    print("✅ Modèle sauvegardé sous 'greek_correction_model.pth'")
 
 
 
@@ -221,11 +215,11 @@ if __name__ == "__main__":
                                                                  theta=calibrated_params["theta"],
                                                                  xi=calibrated_params["sigma"],
                                                                  rho=calibrated_params["rho"], n_paths=30_000, seed=42,
-                                                                 nb_of_plots=1, t_time=50)
+                                                                 nb_of_plots=1, t_time=60)
 
 
 
-    St_test, St1_test, vt_test, vt1_test = extract_snapshots(S, v, t=50)
+    St_test, St1_test, vt_test, vt1_test = extract_snapshots(S, v, t=60)
 
     # (2) Tes grecs sont les mêmes
     # (on suppose que ton forward_model est déjà défini)
@@ -238,11 +232,11 @@ if __name__ == "__main__":
 
     # (3) Ton pnl_tot_test (différence de prix simulé entre t=55 et t=56)
     # Attention : utilise bien compute_pathwise_pnl ou compute_pathwise_pnl_choc
-    pnl_tot_test = compute_pathwise_pnl(St_test, St1_test, vt_test, vt1_test, forward_model)
+    pnl_tot_test = compute_pathwise_pnl_choc(St_test, St1_test, vt_test, vt1_test, forward_model, new_params)
     pnl_tot_test = pnl_tot_test.detach().cpu().numpy()
 
     # (4) Créer le dataset de test
-    test_dataset = GreekCorrectionDataset(St_test, St1_test, vt_test, vt1_test, delta, vega, theta, vanna, volga,
+    test_dataset = GreekCorrectionDatasetV2(St_test, St1_test, vt_test, vt1_test, delta, vega, theta, vanna, volga,
                                           pnl_tot_test)
     test_loader = DataLoader(test_dataset, batch_size=512, shuffle=False)
 
