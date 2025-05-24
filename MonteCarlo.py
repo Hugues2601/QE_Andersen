@@ -7,7 +7,7 @@ from matplotlib import gridspec
 
 def simulate_heston_qe(
         S0=100.0, v0=0.04, r=0.0,
-        kappa=1.5, theta=0.04, xi=0.3, rho=-0.7,
+        kappa=1.5, theta=0.04, sigma=0.3, rho=-0.7,
         T=3, dt=1 / 252, n_paths=30_000, seed=42
 ):
     if seed is not None:
@@ -29,8 +29,8 @@ def simulate_heston_qe(
         vt = v[t]
         m = theta + (vt - theta) * np.exp(-kappa * dt)
         s2 = (
-                vt * xi ** 2 * np.exp(-kappa * dt) * (1 - np.exp(-kappa * dt)) / kappa
-                + theta * xi ** 2 * (1 - np.exp(-kappa * dt)) ** 2 / (2 * kappa)
+                vt * sigma ** 2 * np.exp(-kappa * dt) * (1 - np.exp(-kappa * dt)) / kappa
+                + theta * sigma ** 2 * (1 - np.exp(-kappa * dt)) ** 2 / (2 * kappa)
         )
         psi = s2 / m ** 2
 
@@ -146,9 +146,9 @@ def simulate_heston_qe(
 
 def simulate_heston_qe_with_stochastic_params(
     S0=100.0, v0=0.04, r=0.0,
-    kappa=1.5, theta=0.04, xi=0.3, rho=-0.7,
+    kappa=1.5, theta=0.04, sigma=0.3, rho=-0.7,
     T=3, dt=1 / 252, n_paths=10_000, seed=42,
-    shock_std={"kappa": 0.05, "theta": 0.002, "xi": 0.002, "rho": 0.002},
+    shock_std={"kappa": 0.05, "theta": 0.002, "sigma": 0.002, "rho": 0.002},
     reversion_speed=0.95, t_time=50, nb_of_plots=5
 ):
     import numpy as np
@@ -167,12 +167,12 @@ def simulate_heston_qe_with_stochastic_params(
     # Paramètres dynamiques initiaux pour chaque chemin
     kappa_t = np.full(n_paths, kappa)
     theta_t = np.full(n_paths, theta)
-    xi_t = np.full(n_paths, xi)
+    sigma_t = np.full(n_paths, sigma)
     rho_t = np.full(n_paths, rho)
 
     kappa_path = []
     theta_path = []
-    xi_path = []
+    sigma_path = []
     rho_path = []
 
     for t in range(n_steps):
@@ -181,12 +181,12 @@ def simulate_heston_qe_with_stochastic_params(
         if t > 0:
             kappa_t = kappa + reversion_speed * (kappa_t - kappa) + np.random.normal(0, shock_std["kappa"], n_paths)
             theta_t = theta + reversion_speed * (theta_t - theta) + np.random.normal(0, shock_std["theta"], n_paths)
-            xi_t = xi + reversion_speed * (xi_t - xi) + np.random.normal(0, shock_std["xi"], n_paths)
+            sigma_t = sigma + reversion_speed * (sigma_t - sigma) + np.random.normal(0, shock_std["sigma"], n_paths)
             rho_t = rho + reversion_speed * (rho_t - rho) + np.random.normal(0, shock_std["rho"], n_paths)
 
         kappa_path.append(kappa_t.copy())
         theta_path.append(theta_t.copy())
-        xi_path.append(xi_t.copy())
+        sigma_path.append(sigma_t.copy())
         rho_path.append(rho_t.copy())
 
         # Brownian motions indépendants par chemin
@@ -199,8 +199,8 @@ def simulate_heston_qe_with_stochastic_params(
 
         m = theta_t + (vt - theta_t) * np.exp(-kappa_t * dt)
         s2 = (
-            vt * xi_t**2 * np.exp(-kappa_t * dt) * (1 - np.exp(-kappa_t * dt)) / kappa_t
-            + theta_t * xi_t**2 * (1 - np.exp(-kappa_t * dt))**2 / (2 * kappa_t)
+            vt * sigma_t**2 * np.exp(-kappa_t * dt) * (1 - np.exp(-kappa_t * dt)) / kappa_t
+            + theta_t * sigma_t**2 * (1 - np.exp(-kappa_t * dt))**2 / (2 * kappa_t)
         )
         psi = s2 / m**2
 
@@ -222,7 +222,7 @@ def simulate_heston_qe_with_stochastic_params(
             v_temp[u_gt_p] = -np.log((1 - u[u_gt_p]) / (1 - p[u_gt_p])) / beta[u_gt_p]
             v_next[mask2] = v_temp
 
-        v[t + 1] = np.maximum(v_next, 0)
+        v[t + 1] = np.masigmamum(v_next, 0)
         S[t + 1] = S[t] * np.exp((r - 0.5 * vt) * dt + np.sqrt(vt * dt) * Z_s)
 
     # Pour le plotting
@@ -303,7 +303,7 @@ def simulate_heston_qe_with_stochastic_params(
 
     kappa_path = np.array(kappa_path)  # (n_steps, n_paths)
     theta_path = np.array(theta_path)
-    xi_path = np.array(xi_path)
+    sigma_path = np.array(sigma_path)
     rho_path = np.array(rho_path)
 
     print(S)
@@ -321,9 +321,9 @@ def simulate_heston_qe_with_stochastic_params(
     axs[0, 1].set_ylabel('$\\theta_t$', fontsize=12)
     axs[0, 1].grid(True, linestyle='--', alpha=0.5)
 
-    # --- Plot Xi ---
+    # --- Plot sigma ---
     for i in range(n_plot_paths):
-        axs[1, 0].plot(time_grid[:-1], xi_path[:, i], color=pastel_colors[i % len(pastel_colors)], alpha=0.9)
+        axs[1, 0].plot(time_grid[:-1], sigma_path[:, i], color=pastel_colors[i % len(pastel_colors)], alpha=0.9)
     axs[1, 0].set_title('Paths of $\\sigma_t$', fontsize=14)
     axs[1, 0].set_ylabel('$\\sigma_t$', fontsize=12)
     axs[1, 0].set_xlabel('Time (years)', fontsize=12)
@@ -344,7 +344,7 @@ def simulate_heston_qe_with_stochastic_params(
     # Prints pour debug sur les chemins (exemple sur le chemin 0)
     print(f"kappa[0][{t_time}] = {kappa_path[t_time][0]:.6f}, kappa[0][{t_time+1}] = {kappa_path[t_time+1][0]:.6f}")
     print(f"theta[0][{t_time}] = {theta_path[t_time][0]:.6f}, theta[0][{t_time+1}] = {theta_path[t_time+1][0]:.6f}")
-    print(f"xi   [0][{t_time}] = {xi_path[t_time][0]:.6f}, xi   [0][{t_time+1}] = {xi_path[t_time+1][0]:.6f}")
+    print(f"sigma   [0][{t_time}] = {sigma_path[t_time][0]:.6f}, sigma   [0][{t_time+1}] = {sigma_path[t_time+1][0]:.6f}")
     print(f"rho  [0][{t_time}] = {rho_path[t_time][0]:.6f}, rho  [0][{t_time+1}] = {rho_path[t_time+1][0]:.6f}")
 
     print(kappa_path)
@@ -352,7 +352,7 @@ def simulate_heston_qe_with_stochastic_params(
     return S, v, (
         kappa_path[t_time], kappa_path[t_time+1],
         theta_path[t_time], theta_path[t_time+1],
-        xi_path[t_time], xi_path[t_time+1],
+        sigma_path[t_time], sigma_path[t_time+1],
         rho_path[t_time], rho_path[t_time+1]
     )
 
@@ -364,9 +364,9 @@ def simulate_heston_qe_with_stochastic_params(
 
 def simulate_heston_qe_with_stochastic_params_2(
     S0=100.0, v0=0.04, r=0.0,
-    kappa=1.5, theta=0.04, xi=0.3, rho=-0.7,
+    kappa=1.5, theta=0.04, sigma=0.3, rho=-0.7,
     T=3, dt=1 / 252, n_paths=30_000, seed=42,
-    shock_std={"kappa": 0.05, "theta": 0.002, "xi": 0.002, "rho": 0.002},
+    shock_std={"kappa": 0.05, "theta": 0.002, "sigma": 0.002, "rho": 0.002},
     reversion_speed=0.95, t_time=100
 ):
     if seed is not None:
@@ -382,12 +382,12 @@ def simulate_heston_qe_with_stochastic_params_2(
     # Paramètres dynamiques initialisés à leur valeur cible
     kappa_t = kappa
     theta_t = theta
-    xi_t = xi
+    sigma_t = sigma
     rho_t = rho
 
     kappa_path = []
     theta_path = []
-    xi_path = []
+    sigma_path = []
     rho_path = []
 
     for t in range(n_steps):
@@ -396,12 +396,12 @@ def simulate_heston_qe_with_stochastic_params_2(
         # Chocs stochastiques sur les paramètres (Ornstein-Uhlenbeck style)
             kappa_t = kappa + reversion_speed * (kappa_t - kappa) + np.random.normal(0, shock_std["kappa"])
             theta_t = theta + reversion_speed * (theta_t - theta) + np.random.normal(0, shock_std["theta"])
-            xi_t    = xi    + reversion_speed * (xi_t - xi)       + np.random.normal(0, shock_std["xi"])
+            sigma_t    = sigma    + reversion_speed * (sigma_t - sigma)       + np.random.normal(0, shock_std["sigma"])
             rho_t   = rho   + reversion_speed * (rho_t - rho)     + np.random.normal(0, shock_std["rho"])
 
         kappa_path.append(kappa_t)
         theta_path.append(theta_t)
-        xi_path.append(xi_t)
+        sigma_path.append(sigma_t)
         rho_path.append(rho_t)
 
         Z1 = np.random.randn(n_paths)
@@ -412,8 +412,8 @@ def simulate_heston_qe_with_stochastic_params_2(
         vt = v[t]
         m = theta_t + (vt - theta_t) * np.exp(-kappa_t * dt)
         s2 = (
-            vt * xi_t ** 2 * np.exp(-kappa_t * dt) * (1 - np.exp(-kappa_t * dt)) / kappa_t
-            + theta_t * xi_t ** 2 * (1 - np.exp(-kappa_t * dt)) ** 2 / (2 * kappa_t)
+            vt * sigma_t ** 2 * np.exp(-kappa_t * dt) * (1 - np.exp(-kappa_t * dt)) / kappa_t
+            + theta_t * sigma_t ** 2 * (1 - np.exp(-kappa_t * dt)) ** 2 / (2 * kappa_t)
         )
         psi = s2 / m ** 2
 
@@ -456,9 +456,9 @@ def simulate_heston_qe_with_stochastic_params_2(
     plt.ylabel("$\\theta$ value")
     plt.grid(True)
 
-    # xi (vol of vol)
+    # sigma (vol of vol)
     plt.subplot(2, 2, 3)
-    plt.plot(xi_path, color='black')
+    plt.plot(sigma_path, color='black')
     plt.title("Evolution of $\\sigma$", fontsize=12)
     plt.xlabel("Time (days)")
     plt.ylabel("$\\sigma$ value")
@@ -478,10 +478,10 @@ def simulate_heston_qe_with_stochastic_params_2(
 
     print(f"kappa[100] = {kappa_path[0]:.6f}, kappa[101] = {kappa_path[101]:.6f}")
     print(f"theta[100] = {theta_path[0]:.6f}, theta[101] = {theta_path[101]:.6f}")
-    print(f"xi   [100] = {xi_path[0]:.6f}, xi   [101] = {xi_path[101]:.6f}")
+    print(f"sigma   [100] = {sigma_path[0]:.6f}, sigma   [101] = {sigma_path[101]:.6f}")
     print(f"rho  [100] = {rho_path[0]:.6f}, rho  [101] = {rho_path[101]:.6f}")
 
-    return S, v, kappa_path, theta_path, xi_path, rho_path
+    return S, v, kappa_path, theta_path, sigma_path, rho_path
 
 
 

@@ -3,20 +3,13 @@ import os
 import numpy as np
 import pandas as pd
 from scipy.stats import stats
-
+from FS_BS import FSBlackScholes
 from ForwardStart import ForwardStart
 import torch
 from config import CONFIG
 from MonteCarlo import simulate_heston_qe, plot_terminal_distributions, extract_snapshots, \
     simulate_heston_qe_with_stochastic_params_2
 from PnL_Calculator import compute_pathwise_pnl, analyze_pnl_numpy, compute_pathwise_pnl_choc
-
-from NN import GreekCorrectionMLP  # ou directement ta classe
-
-model = GreekCorrectionMLP()
-model.load_state_dict(torch.load("greek_correction_model.pth"))
-model.eval()
-print("✅ Modèle GreekCorrection chargé pour la simulation !")
 
 
 calibrated_params = {'kappa': 2.41300630569458, 'v0': 0.029727613553404808, 'theta': 0.04138144478201866,
@@ -31,8 +24,10 @@ def simulate_forward_pnl_life_dual_with_shocks(S, v, forward_model, T1, T2,
 
     n_steps = 186
 
+    model_static_BS = FSBlackScholes(S0=5667.65, k=1, T1=0.75, T2=1.5, r=0.03927, sigma=np.sqrt(0.029727613553404808))
+
     def compute_pnl(greeks_dynamic=False):
-        pnl_total_list, pnl_explained_list, pnl_unexplained_list = [], [], []
+        pnl_total_list, pnl_explained_list, pnl_unexplained_list, pnl_explained_list_bs = [], [], [], []
 
         if not greeks_dynamic:
             delta = forward_model.compute_greek("delta")
@@ -40,40 +35,6 @@ def simulate_forward_pnl_life_dual_with_shocks(S, v, forward_model, T1, T2,
             theta = forward_model.compute_greek("theta")
             vanna = forward_model.compute_greek("vanna")
             volga = forward_model.compute_greek("volga")
-
-            # Tu prends les premières valeurs de ta simulation
-            St0 = S[0]  # S à t=0
-            St1_0 = S[1]  # S à t=1
-            vt0 = v[0]  # v à t=0
-            vt1_0 = v[1]  # v à t=1
-
-            # Création du feature vector pour t=0
-            feature_vector = torch.tensor([
-                float(St0),
-                float(St1_0),
-                float(vt0),
-                float(vt1_0),
-                float(delta),
-                float(vega),
-                float(theta),
-                float(vanna),
-                float(volga)
-            ], dtype=torch.float32).unsqueeze(0)  # [1, 9]
-
-            # Passage dans le modèle
-            with torch.no_grad():
-                coeffs = model(feature_vector)
-
-            a, b, c, d, e = coeffs[0]
-
-            # Appliquer la correction
-            delta = a.item() * delta
-            vega = b.item() * vega
-            theta = c.item() * theta
-            vanna = d.item() * vanna
-            volga = e.item() * volga
-
-            print("✅ Greeks fixes corrigés via MLP !")
 
         for t in range(n_steps):
             St, St1 = S[t], S[t + 1]
@@ -101,37 +62,13 @@ def simulate_forward_pnl_life_dual_with_shocks(S, v, forward_model, T1, T2,
             pnl_tot = price_t1 - price_t
 
             if greeks_dynamic:
-                delta = model_t.compute_greek("delta")
-                vega = model_t.compute_greek("vega")
-                theta = model_t.compute_greek("theta")
-                vanna = model_t.compute_greek("vanna")
-                volga = model_t.compute_greek("volga")
+                #GRECS FS HESTON
+                delta = model_t_greek.compute_greek("delta")
+                vega = model_t_greek.compute_greek("vega")
+                theta = model_t_greek.compute_greek("theta")
+                vanna = model_t_greek.compute_greek("vanna")
+                volga = model_t_greek.compute_greek("volga")
 
-                # Construire les features pour MLP
-                feature_vector = torch.tensor([
-                    float(St),
-                    float(St1),
-                    float(vt),
-                    float(vt1),
-                    float(delta),
-                    float(vega),
-                    float(theta),
-                    float(vanna),
-                    float(volga)
-                ], dtype=torch.float32).unsqueeze(0)  # [1, 9]
-                # [1, 9] batch size = 1
-
-                # Prédire a,b,c,d,e
-                with torch.no_grad():
-                    coeffs = model(feature_vector)
-
-                a, b, c, d, e = coeffs[0]  # on récupère les 5 scalaires
-
-                delta = a.item() * delta
-                vega = b.item() * vega
-                theta = c.item() * theta
-                vanna = d.item() * vanna
-                volga = e.item() * volga
 
             delta_c = delta * (St1 - St)
             vega_c = vega * (np.sqrt(vt1) - np.sqrt(vt))
@@ -139,7 +76,10 @@ def simulate_forward_pnl_life_dual_with_shocks(S, v, forward_model, T1, T2,
             vanna_c = vanna * (St1 - St) * (np.sqrt(vt1) - np.sqrt(vt))
             volga_c = 0.5 * volga * (np.sqrt(vt1) - np.sqrt(vt)) ** 2
 
+
             pnl_explained = delta_c + vega_c + theta_c + vanna_c + volga_c
+
+
             pnl_unexplained = pnl_tot - pnl_explained
 
             pnl_total_list.append(pnl_tot)
@@ -164,6 +104,8 @@ def simulate_forward_pnl_life_dual_with_shocks(S, v, forward_model, T1, T2,
     avg_d_tot, cum_d_tot = compute_avg_and_cumsum(dyn_tot)
     avg_d_expl, cum_d_expl = compute_avg_and_cumsum(dyn_expl)
     avg_d_unexpl, cum_d_unexpl = compute_avg_and_cumsum(dyn_unexpl)
+
+
 
     steps = np.arange(n_steps)
 
