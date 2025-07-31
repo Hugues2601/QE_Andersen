@@ -23,7 +23,7 @@ S, v, new_params = simulate_heston_qe_with_stochastic_params(5667.65,
                    r=0.03927,
                    kappa=calibrated_params["kappa"],
                    theta=calibrated_params["theta"],
-                   xi=calibrated_params["sigma"],
+                   sigma=calibrated_params["sigma"],
                    rho=calibrated_params["rho"], n_paths=30000, seed=42, nb_of_plots=1, t_time=60)
 
 print("simul done")
